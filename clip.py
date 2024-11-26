@@ -18,7 +18,7 @@ logger.remove()
 logger.add(sys.stdout, format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>")
 
 
-class GifCreatorApp(QMainWindow):
+class Sub2Clip(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("GIF Creator")
@@ -304,7 +304,7 @@ class GifCreatorApp(QMainWindow):
 # Run the app
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = GifCreatorApp()
+    window = Sub2Clip()
     window.show()
 
     app.aboutToQuit.connect(window.cleanup_tmp_files)
