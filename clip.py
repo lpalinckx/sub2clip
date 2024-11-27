@@ -37,6 +37,7 @@ class Sub2Clip(QMainWindow):
         # Subtitle Search
         self.subtitle_search_input = QLineEdit()
         self.subtitle_search_input.setPlaceholderText("Search subtitles...")
+        self.subtitle_search_input.returnPressed.connect(self.search_subtitles)
         self.subtitle_search_button = QPushButton("Search")
         self.subtitle_search_button.clicked.connect(self.search_subtitles)
         self.subtitle_results = QListWidget()
