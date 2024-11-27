@@ -12,6 +12,7 @@ from pathlib import Path
 from matplotlib import font_manager
 import platform
 from ffmpeg import (FFmpeg, FFmpegError)
+import unicodedata
 
 from loguru import logger 
 logger.remove()
@@ -183,6 +184,11 @@ class Sub2Clip(QMainWindow):
         self.font_label.setText(f'Font: {font_str}')
         self.selected_font_path = font_path
     
+    def normalize_string(self, s):
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', s)
+            if unicodedata.category(c) != 'Mn'
+        )
 
     def search_subtitles(self):
         query = self.subtitle_search_input.text().strip()
@@ -196,7 +202,9 @@ class Sub2Clip(QMainWindow):
         
         self.subtitle_results.clear()
         for sub in self.subtitles:
-            if query.lower() in sub.text.lower():
+            sub_norm = self.normalize_string(sub.text)
+            query_norm = self.normalize_string(query)
+            if query_norm.lower() in sub_norm.lower():
                 result = f"[{sub.start // 1000}s - {sub.end // 1000}s] {sub.text}"
                 self.subtitle_results.addItem(result)
     
