@@ -2,3 +2,4 @@ PyQt5
 pysubs2
 matplotlib
 loguru
+python-ffmpeg

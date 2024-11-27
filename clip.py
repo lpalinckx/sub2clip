@@ -7,11 +7,11 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import (Qt)
 from PyQt5.QtGui import (QMovie)
-import subprocess
 import pysubs2
 from pathlib import Path
 from matplotlib import font_manager
 import platform
+from ffmpeg import (FFmpeg, FFmpegError)
 
 from loguru import logger 
 logger.remove()
@@ -21,7 +21,7 @@ logger.add(sys.stdout, format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <
 class Sub2Clip(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("GIF Creator")
+        self.setWindowTitle("Sub2Clip")
         self.setGeometry(100, 100, 800, 600)
 
         # Main Layout
@@ -157,7 +157,16 @@ class Sub2Clip(QMainWindow):
             self.video_label.setText(f"Selected Video: {os.path.basename(self.video_file)}")
             # Extract subtitles
             self.subtitle_file = os.path.splitext(self.video_file)[0] + ".srt"
-            subprocess.run(["ffmpeg", "-i", self.video_file, "-map", "0:s:0", self.subtitle_file, "-y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            (
+                FFmpeg()
+                .option("y")
+                .input(self.video_file)
+                .output(
+                    self.subtitle_file, 
+                    map=["0:s:0"]
+                )
+            ).execute()
+
             if os.path.exists(self.subtitle_file):
                 self.subtitles = pysubs2.load(self.subtitle_file)
                 self.status_label.setText("Subtitles loaded successfully!")
@@ -227,27 +236,36 @@ class Sub2Clip(QMainWindow):
         if not os.path.exists('output/'):
             os.makedirs('output')
 
-        # Clip the video
-        subprocess.run([
-            "ffmpeg", 
-            "-ss", str(start), 
-            "-i", self.video_file, 
-            "-t", str(duration), 
-            "-c:v", "copy", 
-            "-c:a", "copy", 
-            output_clip, 
-            "-y"], 
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Clip the video       
+        (
+            FFmpeg()
+            .option("y")
+            .option("ss", value=start)
+            .input(self.video_file)
+            .option("t", value=duration)
+            .output(
+                output_clip,
+                {"c:v": "copy",
+                 "c:a": "copy"}
+            )
+        ).execute()
+
+        vf_filters = [] 
         
+        # FPS
+        vf_filters.append(f"fps={self.fps.value()}")
 
-        # Base command 
-        ffmpeg_vf = (
-            f"fps={self.fps.value()},"
-            f"{'crop=in_h:in_h,' if self.square_checkbox.isChecked() else ''}"
-            f"scale={self.resolution.value()}:-1:flags=lanczos,"
-            f"split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"
-        )
+        # Crop 
+        if self.square_checkbox.isChecked():
+            vf_filters.append('crop=in_h:in_h')
 
+        # Scale 
+        vf_filters.append(f"scale={self.resolution.value()}:-1:flags=lanczos")
+
+        # Palette 
+        vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
+        
+        # Subtitle text 
         if custom_text: 
             lines = custom_text.split("\\N")[::-1]
 
@@ -263,26 +281,30 @@ class Sub2Clip(QMainWindow):
                 else: fontfile_str = ''
 
                 # Add the subtitle text to the video 
-                ffmpeg_vf += (
-                    f",drawtext=textfile='{line_filename}':"
+                vf_filters.append(
+                    f"drawtext=textfile='{line_filename}':"
                     f"{fontfile_str}"
                     f"fontcolor=white:"
                     f"fontsize={self.font_size.value()}:"
-                    f"x=(w-text_w)/2:"
-                    f"y=(h-{i}*line_h)"
+                    f"x=(w-text_w)/2:y=(h-{i}*line_h)"
                 )
 
-            logger.debug(ffmpeg_vf)
+        # Join filters 
+        vf = ",".join(vf_filters)
 
-        # Generate GIF
-        command = ["ffmpeg", "-y", "-i", output_clip, "-vf", ffmpeg_vf, output_gif]
-        try:
-            logger.info(f'Full command = "{" ".join(command)}"')
-            subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except subprocess.CalledProcessError as e: 
-            logger.error(e)
+        try: 
+            # Create the gif
+            (
+                FFmpeg()
+                .option("y")
+                .input(output_clip)
+                .output(output_gif, vf=vf)
+            ).execute()
 
-        try:
+        except FFmpegError as e:
+            self.status_label.setText(f"Something went wrong creating the GIF")
+            logger.error(f'Error creating GIF: {e}')
+        else:
             size_mb = os.path.getsize(output_gif) / (1024 * 1024)  
             size_mb = f"{size_mb:.2f}" 
             self.status_label.setText(f"GIF generated: {output_gif}, size={size_mb}MB")
@@ -292,11 +314,6 @@ class Sub2Clip(QMainWindow):
             # Cleanup textfiles
             for txtfile in list(Path('output/').glob('line-*.txt')):
                 txtfile.unlink()
-
-        except Exception as e:
-            logger.error(f"An error occurred: {e}")
-            self.status_label.setText(f"Something went wrong creating the GIF")
-            size_mb = -1
 
     def preview_gif(self, gif_path):
         self.gif_movie = QMovie(gif_path)
