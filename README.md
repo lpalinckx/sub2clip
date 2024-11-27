@@ -1,7 +1,7 @@
 # Sub2Clip
 
 ## Requirements 
-[FFmpeg](https:://ffmpeg.org/) installed on your system 
+[FFmpeg](https://ffmpeg.org/) installed on your system 
 
 ## Installation 
 `pip install -r requirements.txt`
