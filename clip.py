@@ -99,7 +99,11 @@ class Sub2Clip(QMainWindow):
         self.main_layout.addLayout(video_settings_layout)
 
         # Choose font
-        self.font_label  = QLabel("Font: Arial (default)")
+        if platform.system() == 'Windows':
+            self.font_label = QLabel("Font: Arial (default)")
+        else: 
+            self.font_label = QLabel('Font: (default)')
+
         self.main_layout.addWidget(self.font_label)
         self.font_dropdown = QComboBox()
 
@@ -144,6 +148,7 @@ class Sub2Clip(QMainWindow):
 
         if platform.system() == 'Windows':
             self.selected_font_path = Path("C:/Windows/Fonts/arial.ttf")
+        else: self.selected_font_path = ''
 
 
     def load_video(self):
@@ -251,13 +256,16 @@ class Sub2Clip(QMainWindow):
                 line_filename = f'output/line-{i}.txt'
                 with open(line_filename, 'w', encoding='utf-8') as file:
                     file.write(line)
-
-                font_path = self.selected_font_path.as_posix().replace(':', r'\:')
+                
+                if self.selected_font_path:
+                    font_path = self.selected_font_path.as_posix().replace(':', r'\:')
+                    fontfile_str = f"fontfile='{font_path}':"
+                else: fontfile_str = ''
 
                 # Add the subtitle text to the video 
                 ffmpeg_vf += (
                     f",drawtext=textfile='{line_filename}':"
-                    f"fontfile='{font_path}':"
+                    f"{fontfile_str}"
                     f"fontcolor=white:"
                     f"fontsize={self.font_size.value()}:"
                     f"x=(w-text_w)/2:"
