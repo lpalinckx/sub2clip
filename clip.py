@@ -13,8 +13,9 @@ from matplotlib import font_manager
 import platform
 from ffmpeg import (FFmpeg, FFmpegError)
 import unicodedata
+from subs.subs import (extract_subs, generate_gif)
 
-from loguru import logger 
+from loguru import logger
 logger.remove()
 logger.add(sys.stdout, format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>")
 
@@ -78,7 +79,7 @@ class Sub2Clip(QMainWindow):
         self.fps.setValue(20)
         self.fps.setMaximum(60)
 
-        # Crop to square or not 
+        # Crop to square or not
         self.square_checkbox = QCheckBox("Square GIF (crop sides)")
 
         # Font size
@@ -91,7 +92,7 @@ class Sub2Clip(QMainWindow):
         self.resolution.setPrefix("Resolution: ")
         self.resolution.setMaximum(1080)
         self.resolution.setValue(320)
-        
+
         # Layout
         video_settings_layout = QHBoxLayout()
         video_settings_layout.addWidget(self.fps)
@@ -103,7 +104,7 @@ class Sub2Clip(QMainWindow):
         # Choose font
         if platform.system() == 'Windows':
             self.font_label = QLabel("Font: Arial (default)")
-        else: 
+        else:
             self.font_label = QLabel('Font: (default)')
 
         self.main_layout.addWidget(self.font_label)
@@ -113,14 +114,14 @@ class Sub2Clip(QMainWindow):
         ttf.sort(key=lambda font: (font.name, font.weight))
         self.font_dict = {}
 
-        for font in ttf: 
+        for font in ttf:
             font_str = f'{font.name} {font.weight}'
-            if font.style != 'normal': 
+            if font.style != 'normal':
                 font_str += f' {font.style}'
-            
+
             self.font_dropdown.addItem(font_str)
             self.font_dict[font_str] = Path(font.fname)
-        
+
         self.font_dropdown.currentIndexChanged.connect(self.on_font_select)
         self.main_layout.addWidget(self.font_dropdown)
 
@@ -158,24 +159,16 @@ class Sub2Clip(QMainWindow):
         if self.video_file:
             self.video_label.setText(f"Selected Video: {os.path.basename(self.video_file)}")
             # Extract subtitles
-            self.subtitle_file = os.path.splitext(self.video_file)[0] + ".srt"
-            (
-                FFmpeg()
-                .option("y")
-                .input(self.video_file)
-                .output(
-                    self.subtitle_file, 
-                    map=["0:s:0"]
-                )
-            ).execute()
-
-            if os.path.exists(self.subtitle_file):
-                self.subtitles = pysubs2.load(self.subtitle_file)
+            subs, success = extract_subs(self.video_file)
+            if success:
+                logger.success(f'loaded subtitles for {self.video_file}')
+                self.subtitles = subs
                 self.status_label.setText("Subtitles loaded successfully!")
                 self.load_all_subs()
             else:
+                logger.error(subs)
                 self.status_label.setText("No subtitles found.")
-    
+
 
     def on_font_select(self):
         font_str = self.font_dropdown.currentText()
@@ -183,7 +176,7 @@ class Sub2Clip(QMainWindow):
 
         self.font_label.setText(f'Font: {font_str}')
         self.selected_font_path = font_path
-    
+
     def normalize_string(self, s):
         return ''.join(
             c for c in unicodedata.normalize('NFD', s)
@@ -194,12 +187,12 @@ class Sub2Clip(QMainWindow):
         query = self.subtitle_search_input.text().strip()
         if not self.subtitles:
             self.status_label.setText("Please load subtitles")
-            return 
-        
-        if not query: 
+            return
+
+        if not query:
             self.load_all_subs()
             return
-        
+
         self.subtitle_results.clear()
         for sub in self.subtitles:
             sub_norm = self.normalize_string(sub.text)
@@ -207,11 +200,11 @@ class Sub2Clip(QMainWindow):
             if query_norm.lower() in sub_norm.lower():
                 result = f"[{sub.start // 1000}s - {sub.end // 1000}s] {sub.text}"
                 self.subtitle_results.addItem(result)
-    
+
 
     def load_all_subs(self):
         self.subtitle_results.clear()
-        for sub in self.subtitles: 
+        for sub in self.subtitles:
             result = f"[{sub.start // 1000}s - {sub.end // 1000}s] {sub.text}"
             self.subtitle_results.addItem(result)
 
@@ -229,112 +222,51 @@ class Sub2Clip(QMainWindow):
         if not self.video_file:
             self.status_label.setText("Please load a video first.")
             return
-        
+
         start = self.start_time.value()
         end = self.end_time.value()
         if start >= end:
             self.status_label.setText("Invalid start and end times.")
             return
-        
+
         output_clip = "output/clip.mp4"
         output_gif = "output/output.gif"
         custom_text = self.custom_text_input.text().strip()
 
-        duration = end - start
-
         if not os.path.exists('output/'):
             os.makedirs('output')
 
-        # Clip the video       
-        (
-            FFmpeg()
-            .option("y")
-            .option("ss", value=start)
-            .input(self.video_file)
-            .option("t", value=duration)
-            .output(
+        err, ok = generate_gif(
+                start,
+                end,
                 output_clip,
-                {"c:v": "copy",
-                 "c:a": "copy"}
+                output_gif,
+                custom_text,
+                self.video_file,
+                self.fps.value(),
+                self.square_checkbox.isChecked(),
+                self.resolution.value(),
+                self.selected_font_path,
+                self.font_size.value()
             )
-        ).execute()
 
-        vf_filters = [] 
-        
-        # FPS
-        vf_filters.append(f"fps={self.fps.value()}")
-
-        # Crop 
-        if self.square_checkbox.isChecked():
-            vf_filters.append('crop=in_h:in_h')
-
-        # Scale 
-        vf_filters.append(f"scale={self.resolution.value()}:-1:flags=lanczos")
-
-        # Subtitle text 
-        if custom_text: 
-            lines = custom_text.split("\\N")[::-1]
-
-            for i, line in enumerate(lines, start=1):
-                # Writing the line to a file helps circumvent ffmpeg's weird escaping rules ¯\_(ツ)_/¯
-                line_filename = f'output/line-{i}.txt'
-                with open(line_filename, 'w', encoding='utf-8') as file:
-                    file.write(line)
-                
-                if self.selected_font_path:
-                    font_path = self.selected_font_path.as_posix().replace(':', r'\:')
-                    fontfile_str = f"fontfile='{font_path}':"
-                else: fontfile_str = ''
-
-                # Add the subtitle text to the video 
-                vf_filters.append(
-                    f"drawtext=textfile='{line_filename}':"
-                    f"{fontfile_str}"
-                    f"fontcolor=white:"
-                    f"fontsize={self.font_size.value()}:"
-                    f"x=(w-text_w)/2:y=(h-{i}*line_h)"
-                )
-
-        # Palette 
-        vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")        
-
-        # Join filters 
-        vf = ",".join(vf_filters)
-
-        try: 
-            logger.debug(f"Full command = 'ffmpeg -i {output_clip} -y -vf \"{vf}\" {output_gif}'")
-            # Create the gif
-            (
-                FFmpeg()
-                .option("y")
-                .input(output_clip)
-                .output(output_gif, vf=vf)
-            ).execute()
-
-        except FFmpegError as e:
-            self.status_label.setText(f"Something went wrong creating the GIF")
-            logger.error(f'Error creating GIF: {e}')
-        else:
-            size_mb = os.path.getsize(output_gif) / (1024 * 1024)  
-            size_mb = f"{size_mb:.2f}" 
+        if ok:
+            size_mb = os.path.getsize(output_gif) / (1024 * 1024)
+            size_mb = f"{size_mb:.2f}"
             self.status_label.setText(f"GIF generated: {output_gif}, size={size_mb}MB")
-            self.preview_gif(output_gif)       
+            self.preview_gif(output_gif)
             logger.success(f'{output_gif} generated, size={size_mb}MB')
-
-            # Cleanup textfiles
-            for txtfile in list(Path('output/').glob('line-*.txt')):
-                txtfile.unlink()
+        else:
+            self.status_label.setText(f"Something went wrong creating the GIF")
+            logger.error(err)
 
     def preview_gif(self, gif_path):
         self.gif_movie = QMovie(gif_path)
         self.gif_preview.setMovie(self.gif_movie)
         self.gif_movie.start()
 
-
-    def cleanup_tmp_files(self):
-        if os.path.exists(self.subtitle_file):
-            os.remove(self.subtitle_file)
-
+    def close(self):
+        logger.success("closing...")
 
 # Run the app
 if __name__ == "__main__":
@@ -342,6 +274,6 @@ if __name__ == "__main__":
     window = Sub2Clip()
     window.show()
 
-    app.aboutToQuit.connect(window.cleanup_tmp_files)
+    app.aboutToQuit.connect(window.close)
 
     sys.exit(app.exec_())
