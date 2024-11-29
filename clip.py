@@ -271,9 +271,6 @@ class Sub2Clip(QMainWindow):
         # Scale 
         vf_filters.append(f"scale={self.resolution.value()}:-1:flags=lanczos")
 
-        # Palette 
-        vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
-        
         # Subtitle text 
         if custom_text: 
             lines = custom_text.split("\\N")[::-1]
@@ -298,10 +295,14 @@ class Sub2Clip(QMainWindow):
                     f"x=(w-text_w)/2:y=(h-{i}*line_h)"
                 )
 
+        # Palette 
+        vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")        
+
         # Join filters 
         vf = ",".join(vf_filters)
 
         try: 
+            logger.debug(f"Full command = 'ffmpeg -i {output_clip} -y -vf \"{vf}\" {output_gif}'")
             # Create the gif
             (
                 FFmpeg()
