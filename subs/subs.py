@@ -64,9 +64,6 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, vid
     # Scale
     vf_filters.append(f"scale={resolution}:-1:flags=lanczos")
 
-    # Palette
-    vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
-
     # Subtitle text
     if custom_text:
         lines = custom_text.split("\\N")[::-1]
@@ -90,6 +87,9 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, vid
                 f"fontsize={font_size}:"
                 f"x=(w-text_w)/2:y=(h-{i}*line_h)"
             )
+
+    # Palette
+    vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
 
     # Join filters
     vf = ",".join(vf_filters)
