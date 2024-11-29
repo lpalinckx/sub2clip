@@ -108,8 +108,4 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, vid
         except FFmpegError as e:
             return f'could not create the gif: {e}', False
 
-    # Cleanup textfiles
-   # for txtfile in list(Path('output/').glob('line-*.txt')):
-   #     txtfile.unlink()
-
     return None, True
