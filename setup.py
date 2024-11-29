@@ -1,3 +1,5 @@
+from setuptools import setup
+
 setup(
    name='sub2clip',
    version='1.0',
