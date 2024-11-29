@@ -72,7 +72,7 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, vid
             for i, line in enumerate(lines, start=1):
                 # Writing the line to a file helps circumvent ffmpeg's weird escaping rules ¯\_(ツ)_/¯
                 # https://ffmpeg.org/ffmpeg-filters.html#Notes-on-filtergraph-escaping
-                line_filename = f'{tmp}/line-{i}.txt'
+                line_filename = os.path.join(tmp, f'line-{i}.txt')
                 with open(line_filename, 'w', encoding='utf-8') as file:
                     file.write(line)
 
