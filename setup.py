@@ -10,7 +10,6 @@ setup(
                 'pysubs2',
                 'matplotlib',
                 'loguru',
-                'python-ffmpeg',
-                'tempfile'
+                'python-ffmpeg'
     ]
 )
