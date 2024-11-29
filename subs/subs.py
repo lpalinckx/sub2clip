@@ -38,7 +38,7 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, vid
 
     duration = end_time - start_time
 
-    # Clip the video
+    # Clip the video, needed because seeking to the right spot tends to break otherwise
     (
         FFmpeg()
         .option("y")
@@ -65,48 +65,51 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, vid
     vf_filters.append(f"scale={resolution}:-1:flags=lanczos")
 
     # Subtitle text
-    if custom_text:
-        lines = custom_text.split("\\N")[::-1]
+    with tempfile.TemporaryDirectory() as tmp:
+        if custom_text:
+            lines = custom_text.split("\\N")[::-1]
 
-        for i, line in enumerate(lines, start=1):
-            # Writing the line to a file helps circumvent ffmpeg's weird escaping rules ¯\_(ツ)_/¯
-            line_filename = f'output/line-{i}.txt'
-            with open(line_filename, 'w', encoding='utf-8') as file:
-                file.write(line)
+            for i, line in enumerate(lines, start=1):
+                # Writing the line to a file helps circumvent ffmpeg's weird escaping rules ¯\_(ツ)_/¯
+                # https://ffmpeg.org/ffmpeg-filters.html#Notes-on-filtergraph-escaping
+                line_filename = f'{tmp}/line-{i}.txt'
+                with open(line_filename, 'w', encoding='utf-8') as file:
+                    file.write(line)
 
-            if font:
-                font_path = font.as_posix().replace(':', r'\:')
-                fontfile_str = f"fontfile='{font_path}':"
-            else: fontfile_str = ''
+                if font:
+                    font_path = font.as_posix().replace(':', r'\:')
+                    fontfile_str = f"fontfile='{font_path}':"
+                else: fontfile_str = ''
 
-            # Add the subtitle text to the video
-            vf_filters.append(
-                f"drawtext=textfile='{line_filename}':"
-                f"{fontfile_str}"
-                f"fontcolor=white:"
-                f"fontsize={font_size}:"
-                f"x=(w-text_w)/2:y=(h-{i}*line_h)"
-            )
+                # Add the subtitle text to the video
+                vf_filters.append(
+                    f"drawtext=textfile='{line_filename}':"
+                    f"{fontfile_str}"
+                    f"fontcolor=white:"
+                    f"fontsize={font_size}:"
+                    f"x=(w-text_w)/2:y=(h-{i}*line_h)"
+                )
 
-    # Palette
-    vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
+        # Palette
+        vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
 
-    # Join filters
-    vf = ",".join(vf_filters)
 
-    try:
-        # Create the gif
-        (
-            FFmpeg()
-            .option("y")
-            .input(output_clip)
-            .output(output_gif, vf=vf)
-        ).execute()
-    except FFmpegError as e:
-        return f'could not create the gif: {e}', False
+        # Join filters
+        vf = ",".join(vf_filters)
+
+        try:
+            # Create the gif
+            (
+                FFmpeg()
+                .option("y")
+                .input(output_clip)
+                .output(output_gif, vf=vf)
+            ).execute()
+        except FFmpegError as e:
+            return f'could not create the gif: {e}', False
 
     # Cleanup textfiles
-    for txtfile in list(Path('output/').glob('line-*.txt')):
-        txtfile.unlink()
+   # for txtfile in list(Path('output/').glob('line-*.txt')):
+   #     txtfile.unlink()
 
     return None, True
