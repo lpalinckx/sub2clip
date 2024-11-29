@@ -81,6 +81,8 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, vid
                     fontfile_str = f"fontfile='{font_path}':"
                 else: fontfile_str = ''
 
+                line_filename = line_filename.replace('\\', '/').replace(':', r'\:')
+
                 # Add the subtitle text to the video
                 vf_filters.append(
                     f"drawtext=textfile='{line_filename}':"
