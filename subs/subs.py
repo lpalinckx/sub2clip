@@ -89,7 +89,8 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, vid
                     f"{fontfile_str}"
                     f"fontcolor=white:"
                     f"fontsize={font_size}:"
-                    f"x=(w-text_w)/2:y=(h-{i}*line_h)"
+                    f"x=(w-text_w)/2:y=(h-{i}*line_h):"
+                    f"bordercolor=black:borderw=1"
                 )
 
         # Palette
