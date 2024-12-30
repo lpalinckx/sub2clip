@@ -82,6 +82,9 @@ class Sub2Clip(QMainWindow):
         # Crop to square or not
         self.square_checkbox = QCheckBox("Square GIF (crop sides)")
 
+        # Create boomerang gif? 
+        self.boomerang_checkbox = QCheckBox("Boomerang GIF")
+
         # Font size
         self.font_size = QSpinBox()
         self.font_size.setPrefix("Font size: ")
@@ -97,6 +100,7 @@ class Sub2Clip(QMainWindow):
         video_settings_layout = QHBoxLayout()
         video_settings_layout.addWidget(self.fps)
         video_settings_layout.addWidget(self.square_checkbox)
+        video_settings_layout.addWidget(self.boomerang_checkbox)
         video_settings_layout.addWidget(self.font_size)
         video_settings_layout.addWidget(self.resolution)
         self.main_layout.addLayout(video_settings_layout)
@@ -245,6 +249,7 @@ class Sub2Clip(QMainWindow):
                 self.video_file,
                 self.fps.value(),
                 self.square_checkbox.isChecked(),
+                self.boomerang_checkbox.isChecked(),
                 self.resolution.value(),
                 self.selected_font_path,
                 self.font_size.value()

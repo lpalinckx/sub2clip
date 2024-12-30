@@ -32,7 +32,7 @@ def extract_subs(video_path):
             return f'could not extract subtitles from video {video_path}', False
 
 # Generate the chosen GIF with FFmpeg
-def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, video_path, fps, crop, resolution, font, font_size):
+def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, video_path, fps, crop, boomerang, resolution, font, font_size):
     if start_time >= end_time:
         return f'duration must be at least 1 second', False
 
@@ -53,6 +53,9 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, vid
     ).execute()
 
     vf_filters = []
+
+    if boomerang:
+        vf_filters.append("[0]reverse[r];[0][r]concat=n=2:v=1:a=0")
 
     # FPS
     vf_filters.append(f"fps={fps}")
@@ -106,7 +109,7 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, vid
                 FFmpeg()
                 .option("y")
                 .input(output_clip)
-                .output(output_gif, vf=vf)
+                .output(output_gif, {'filter_complex': vf})
             ).execute()
         except FFmpegError as e:
             return f'could not create the gif: {e}', False
