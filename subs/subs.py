@@ -2,7 +2,6 @@ import pysubs2
 import tempfile
 import os
 from ffmpeg import (FFmpeg, FFmpegError)
-from pathlib import Path
 
 # Functions in this library return a second boolean value indicating success/failure
 # In case of failure, the first return value is the error message
