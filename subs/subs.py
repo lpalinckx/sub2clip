@@ -6,10 +6,17 @@ from ffmpeg import (FFmpeg, FFmpegError)
 # Functions in this library return a second boolean value indicating success/failure
 # In case of failure, the first return value is the error message
 
-# Extract subs with ffmpeg to a tmp file (pysubs2 _only_ works with files).
-# Load them with pysubs2 and return the result.
-# The tmp dir is cleaned up automatically.
 def extract_subs(video_path):
+    """Extract subs with FFmpeg to a tmp file (pysubs2 _only_ works with files).
+    Load them with pysubs2 and return the result.
+    The tmp dir is cleaned up automatically.
+
+    Args:
+        video_path (str): Path to a video containing subtitles
+
+    Returns:
+        Tuple: (SSAFile, True) when the sub extraction succeeded or (str, False) when unsuccesful, with str being the error message.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         output_path = os.path.join(tmp, 'subs.srt')
         try:
@@ -81,8 +88,27 @@ def add_text(tmp, vf_filters, text, font, font_size, padding=0, is_caption=False
             f"bordercolor=black:borderw=1"
         )
 
-# Generate the chosen GIF with FFmpeg
 def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, caption, video_path, fps, crop, boomerang, resolution, font, font_size):
+    """Generate a GIF from a video file using FFmpeg
+
+    Args:
+        start_time (float): Start time, in seconds
+        end_time (float): End time, in seconds
+        output_clip (str): Output path of the clip
+        output_gif (str): Output path of the gif
+        custom_text (str): Subtitle text to embed in the gif
+        caption (str): Caption text to embed in the gif
+        video_path (str): Path to the input video
+        fps (int): Frames per second to use
+        crop (bool): Crop the video to a square (1:1 aspect ratio)
+        boomerang (bool): "Boomerang" the gif; the reverse of the original gif is appended to the end
+        resolution (int): Output resolution of the gif
+        font (str): Path to the font to use
+        font_size (int): Size of the font
+
+    Returns:
+        Tuple: (None, True) when gif creation was succesful or (str, False) when unsuccesful, the str value is the error message.
+    """
     if start_time >= end_time:
         return f'duration must be at least 1 second', False
 
@@ -136,7 +162,6 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
 
         # Palette
         vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
-
 
         # Join filters
         vf = ",".join(vf_filters)
