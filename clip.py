@@ -87,7 +87,7 @@ class Sub2Clip(QMainWindow):
         # Crop to square or not
         self.square_checkbox = QCheckBox("Square GIF (crop sides)")
 
-        # Create boomerang gif? 
+        # Create boomerang gif?
         self.boomerang_checkbox = QCheckBox("Boomerang GIF")
 
         # Font size
