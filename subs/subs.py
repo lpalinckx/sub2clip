@@ -147,9 +147,7 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
         # Caption text
         if caption:
             # Add black bars to the top of the gif for the caption
-            print(caption.count("\\N"))
             padding = (2 + caption.count("\\N")) * font_size
-            print(padding)
             vf_filters.append(
                 f"pad=iw:(ih+{padding}):0:{padding}"
             )
