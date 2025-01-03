@@ -73,6 +73,11 @@ class Sub2Clip(QMainWindow):
         self.custom_text_input.setPlaceholderText("Enter custom text for the GIF (optional)...")
         self.main_layout.addWidget(self.custom_text_input)
 
+        # Caption
+        self.caption_text_input = QLineEdit()
+        self.caption_text_input.setPlaceholderText("Enter a caption (optional)")
+        self.main_layout.addWidget(self.caption_text_input)
+
         # Set fps
         self.fps = QSpinBox()
         self.fps.setPrefix("FPS: ")
@@ -236,6 +241,7 @@ class Sub2Clip(QMainWindow):
         output_clip = "output/clip.mp4"
         output_gif = "output/output.gif"
         custom_text = self.custom_text_input.text().strip()
+        caption = self.caption_text_input.text().strip()
 
         if not os.path.exists('output/'):
             os.makedirs('output')
@@ -246,6 +252,7 @@ class Sub2Clip(QMainWindow):
                 output_clip,
                 output_gif,
                 custom_text,
+                caption,
                 self.video_file,
                 self.fps.value(),
                 self.square_checkbox.isChecked(),
