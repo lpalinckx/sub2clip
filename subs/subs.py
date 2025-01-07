@@ -88,7 +88,7 @@ def add_text(tmp, vf_filters, text, font, font_size, padding=0, is_caption=False
             f"bordercolor=black:borderw=1"
         )
 
-def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, caption, video_path, fps, crop, boomerang, resolution, font, font_size):
+def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, caption, video_path, fps, crop, boomerang, resolution, font, font_size, fancy_colors):
     """Generate a GIF from a video file using FFmpeg
 
     Args:
@@ -105,6 +105,7 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
         resolution (int): Output resolution of the gif
         font (str): Path to the font to use
         font_size (int): Size of the font
+        fancy_colors (bool): include all colors in gif, greatly increases gif size
 
     Returns:
         Tuple: (None, True) when gif creation was succesful or (str, False) when unsuccesful, the str value is the error message.
@@ -159,7 +160,10 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
             add_text(tmp, vf_filters, custom_text, font, font_size, is_caption=False)
 
         # Palette
-        vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
+        if fancy_colors:
+            vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
+        else:
+            vf_filters.append("split[s0][s1];[s0]palettegen=max_colors=32[p];[s1][p]paletteuse=dither=bayer")
 
         # Join filters
         vf = ",".join(vf_filters)
