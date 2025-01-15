@@ -88,7 +88,7 @@ def add_text(tmp, vf_filters, text, font, font_size, padding=0, is_caption=False
             f"bordercolor=black:borderw=1"
         )
 
-def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, caption, video_path, fps, crop, boomerang, resolution, font, font_size, fancy_colors):
+def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, caption, video_path, fps, crop, boomerang, resolution, font, font_size, fancy_colors, mp4_copy=False, output_mp4=""):
     """Generate a GIF from a video file using FFmpeg
 
     Args:
@@ -106,6 +106,8 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
         font (str): Path to the font to use
         font_size (int): Size of the font
         fancy_colors (bool): include all colors in gif, greatly increases gif size
+        mp4_copy (bool, optional): Creates a copy MP4 with the subtitle/caption hardcoded. MP4's have far better compression than GIFs
+        output_mp4 (str, optional): Output path of the mp4
 
     Returns:
         Tuple: (None, True) when gif creation was succesful or (str, False) when unsuccesful, the str value is the error message.
@@ -178,5 +180,21 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
             ).execute()
         except FFmpegError as e:
             return f'could not create the gif: {e}', False
+
+        if mp4_copy:
+            try:
+                # Remove palette command, not necessary for mp4s
+                vf_filters = vf_filters[:-1]
+                vf = ",".join(vf_filters)
+
+                # Create MP4 copy
+                (
+                    FFmpeg()
+                    .option("y")
+                    .input(output_clip)
+                    .output(output_mp4, {'filter_complex': vf})
+                ).execute()
+            except FFmpeg as e:
+                return f'could not create the mp4: {e}', False
 
     return None, True

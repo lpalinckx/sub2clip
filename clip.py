@@ -93,6 +93,9 @@ class Sub2Clip(QMainWindow):
         # Create boomerang gif?
         self.boomerang_checkbox = QCheckBox("Boomerang GIF")
 
+        # Also create mp4 with HC subs? (mp4s have better compression)
+        self.mp4_copy_checkbox = QCheckBox("MP4 with subs")
+
         # Font size
         self.font_size = QSpinBox()
         self.font_size.setPrefix("Font size: ")
@@ -110,6 +113,7 @@ class Sub2Clip(QMainWindow):
         video_settings_layout.addWidget(self.square_checkbox)
         video_settings_layout.addWidget(self.boomerang_checkbox)
         video_settings_layout.addWidget(self.fancy_colors_checkbox)
+        video_settings_layout.addWidget(self.mp4_copy_checkbox)
         video_settings_layout.addWidget(self.font_size)
         video_settings_layout.addWidget(self.resolution)
         self.main_layout.addLayout(video_settings_layout)
@@ -244,6 +248,7 @@ class Sub2Clip(QMainWindow):
 
         output_clip = "output/clip.mp4"
         output_gif = "output/output.gif"
+        output_mp4 = "output/output.mp4"
         custom_text = self.custom_text_input.text().strip()
         caption = self.caption_text_input.text().strip()
 
@@ -264,7 +269,9 @@ class Sub2Clip(QMainWindow):
                 self.resolution.value(),
                 self.selected_font_path,
                 self.font_size.value(),
-                self.fancy_colors_checkbox.isChecked()
+                self.fancy_colors_checkbox.isChecked(),
+                self.mp4_copy_checkbox.isChecked(),
+                output_mp4
             )
 
         if ok:
@@ -273,6 +280,10 @@ class Sub2Clip(QMainWindow):
             self.status_label.setText(f"GIF generated: {output_gif}, size={size_mb}MB")
             self.preview_gif(output_gif)
             logger.success(f'{output_gif} generated, size={size_mb}MB')
+            if self.mp4_copy_checkbox.isChecked():
+                size_mb_mp4 = os.path.getsize(output_mp4) / (1024 * 1024)
+                size_mb_mp4 = f"{size_mb_mp4:.2f}"
+                logger.success(f'{output_mp4} generated, size={size_mb_mp4}MB')
         else:
             self.status_label.setText(f"Something went wrong creating the GIF")
             logger.error(err)
