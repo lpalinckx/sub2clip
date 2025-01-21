@@ -194,7 +194,7 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
                     .input(output_clip)
                     .output(output_mp4, {'filter_complex': vf})
                 ).execute()
-            except FFmpeg as e:
+            except FFmpegError as e:
                 return f'could not create the mp4: {e}', False
 
     return None, True
