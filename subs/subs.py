@@ -218,3 +218,5 @@ def generate_clip(video_path, start_time, end_time, output_path):
              "c:a": "copy"}
         )
     ).execute()
+
+    return None, True
