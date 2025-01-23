@@ -198,3 +198,23 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
                 return f'could not create the mp4: {e}', False
 
     return None, True
+
+def generate_clip(video_path, start_time, end_time, output_path):
+    if start_time >= end_time:
+        return f'duration must be at least 1 second', False
+
+    duration = end_time - start_time
+
+    # Clip the video, needed because seeking to the right spot tends to break otherwise
+    (
+        FFmpeg()
+        .option("y")
+        .option("ss", value=start_time)
+        .input(video_path)
+        .option("t", value=duration)
+        .output(
+            output_path,
+            {"c:v": "copy",
+             "c:a": "copy"}
+        )
+    ).execute()
