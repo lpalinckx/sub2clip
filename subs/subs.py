@@ -85,7 +85,7 @@ def add_text(tmp, vf_filters, text, font, font_size, padding=0, is_caption=False
             f"fontcolor=white:"
             f"fontsize={font_size}:"
             f"x={x}:y={y}:"
-            f"bordercolor=black:borderw=1"
+            f"bordercolor=black:borderw={font_size/20}"
         )
 
 def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, caption, video_path, fps, crop, boomerang, resolution, font, font_size, fancy_colors, mp4_copy=False, output_mp4=""):
