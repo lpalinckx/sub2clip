@@ -3,7 +3,7 @@ import os
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QPushButton, QLabel,
     QFileDialog, QLineEdit, QHBoxLayout, QSpinBox, QWidget, QListWidget, QCheckBox,
-    QDoubleSpinBox, QComboBox
+    QDoubleSpinBox, QComboBox, QListWidgetItem
 )
 from PyQt5.QtCore import (Qt)
 from PyQt5.QtGui import (QMovie)
@@ -17,6 +17,14 @@ from loguru import logger
 logger.remove()
 logger.add(sys.stdout, format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>")
 
+class SubtitleListItem(QListWidgetItem):
+    """
+    Custom class to show the subtitle in the List widget with the source video stored
+    """
+    def __init__(self, text, source_video):
+        super().__init__(text)
+        self.setStatusTip(os.path.basename(source_video))
+        self.source_video = source_video
 
 class Sub2Clip(QMainWindow):
     def __init__(self):
@@ -28,11 +36,25 @@ class Sub2Clip(QMainWindow):
         self.main_layout = QVBoxLayout()
 
         # Video Loader
+        btn_layout = QHBoxLayout()
         self.video_label = QLabel("Selected Video: None")
         self.load_video_button = QPushButton("Load Video")
         self.load_video_button.clicked.connect(self.load_video)
         self.main_layout.addWidget(self.video_label)
-        self.main_layout.addWidget(self.load_video_button)
+        btn_layout.addWidget(self.load_video_button)
+
+        # Directory loader
+        self.load_dir_button = QPushButton("Load Directory")
+        self.load_dir_button.clicked.connect(self.load_directory)
+        btn_layout.addWidget(self.load_dir_button)
+        self.main_layout.addLayout(btn_layout)
+
+        # Video dropdown
+        self.video_dropdown = QComboBox()
+        self.video_dropdown.setEnabled(False)
+        self.video_dropdown.addItem('All videos')
+        self.video_dropdown.currentIndexChanged.connect(self.on_video_select)
+        self.main_layout.addWidget(self.video_dropdown)
 
         # Subtitle Search
         self.subtitle_search_input = QLineEdit()
@@ -169,15 +191,61 @@ class Sub2Clip(QMainWindow):
         else: self.selected_font_path = ''
 
 
-    def load_video(self):
-        self.video_file, _ = QFileDialog.getOpenFileName(self, "Select Video", "", "Video Files (*.mp4 *.mkv)")
+    def load_directory(self):
+        self.directory = QFileDialog.getExistingDirectory(self, caption="Select Directory", directory="")
+        if self.directory:
+            self.video_label.setText(f'Selected Directory: {os.path.basename(self.directory)}')
+            self.videos = []
+
+            self.video_dropdown.clear()
+            self.video_dropdown.addItem('All videos')
+
+            for dirpath, _, filenames in os.walk(self.directory):
+                for file in filenames:
+                    if file.lower().endswith(('.mp4', '.mkv')):
+                        path = os.path.join(dirpath, file)
+                        self.videos.append(path)
+
+            self.video_dropdown.addItems(self.videos)
+            self.video_dropdown.setEnabled(True)
+            self.on_video_select()
+
+
+    def on_video_select(self):
+        if self.video_dropdown.isEnabled():
+            idx = self.video_dropdown.currentIndex()
+            if idx == 0 or idx == -1:
+                logger.info('Loading all subtitles..')
+
+                self.subtitles = []
+
+                for video in self.videos:
+                    subs, success = extract_subs(video)
+                    if success:
+                        logger.debug(f'Subs loaded for {video}')
+                        self.subtitles.append((subs, video))
+                    else:
+                        logger.error(subs)
+
+                self.load_all_subs()
+            else:
+                video_str = self.video_dropdown.currentText()
+                self.load_video(video=video_str)
+
+
+    def load_video(self, video=None):
+        self.video_file, _ = (video, None) if video else QFileDialog.getOpenFileName(self, caption="Select Video", directory="", filter="Video Files (*.mp4 *.mkv)")
         if self.video_file:
-            self.video_label.setText(f"Selected Video: {os.path.basename(self.video_file)}")
+            # Disable dropdown if FileDialog was used
+            if not video:
+                self.video_dropdown.setEnabled(False)
+                self.video_label.setText(f"Selected Video: {os.path.basename(self.video_file)}")
+
             # Extract subtitles
             subs, success = extract_subs(self.video_file)
             if success:
                 logger.success(f'loaded subtitles for {self.video_file}')
-                self.subtitles = subs
+                self.subtitles = [(subs, self.video_file)]
                 self.status_label.setText("Subtitles loaded successfully!")
                 self.load_all_subs()
             else:
@@ -198,6 +266,15 @@ class Sub2Clip(QMainWindow):
             if unicodedata.category(c) != 'Mn'
         )
 
+    def add_header(self, video):
+        header = QListWidgetItem(video)
+        flags = header.flags()
+        flags &= Qt.ItemFlag.ItemIsSelectable
+        header.setFlags(flags)
+        self.subtitle_results.addItem(header)
+        return header
+
+
     def search_subtitles(self):
         query = self.subtitle_search_input.text().strip()
         if not self.subtitles:
@@ -209,28 +286,44 @@ class Sub2Clip(QMainWindow):
             return
 
         self.subtitle_results.clear()
-        for sub in self.subtitles:
-            sub_norm = self.normalize_string(sub.text)
-            query_norm = self.normalize_string(query)
-            if query_norm.lower() in sub_norm.lower():
-                result = f"[{sub.start // 1000}s - {sub.end // 1000}s] {sub.text}"
-                self.subtitle_results.addItem(result)
+        query_norm = self.normalize_string(query).lower()
+
+        for (subfile, video) in self.subtitles:
+            h = self.add_header(video)
+            found = any(query_norm in self.normalize_string(sub.text).lower() for sub in subfile)
+
+            if not found:
+                self.subtitle_results.takeItem(self.subtitle_results.row(h))
+                continue
+
+            for sub in subfile:
+                sub_norm = self.normalize_string(sub.text).lower()
+                if query_norm in sub_norm:
+                    text = f"[{sub.start // 1000}s - {sub.end // 1000}s] {sub.text}"
+                    widget = SubtitleListItem(text, source_video=video)
+                    self.subtitle_results.addItem(widget)
 
 
     def load_all_subs(self):
         self.subtitle_results.clear()
-        for sub in self.subtitles:
-            result = f"[{sub.start // 1000}s - {sub.end // 1000}s] {sub.text}"
-            self.subtitle_results.addItem(result)
+        for (subfile, video) in self.subtitles:
+            self.add_header(video)
+            for sub in subfile:
+                text = f"[{sub.start // 1000}s - {sub.end // 1000}s] {sub.text}"
+                widget = SubtitleListItem(text, source_video=video)
+                # self.subtitle_results.addItem(result)
+                self.subtitle_results.addItem(widget)
 
 
     def select_search_result(self, item):
-        text = item.text()
-        subtitle_timing, subtitle_text = text.split(']')
-        start, end = subtitle_timing.strip('[]').replace('s','').split(' - ')
-        self.start_time.setValue(float(start))
-        self.end_time.setValue(float(end))
-        self.custom_text_input.setText(subtitle_text)
+        if isinstance(item, SubtitleListItem):
+            text = item.text()
+            self.video_file = item.source_video
+            subtitle_timing, subtitle_text = text.split(']')
+            start, end = subtitle_timing.strip('[]').replace('s','').split(' - ')
+            self.start_time.setValue(float(start))
+            self.end_time.setValue(float(end))
+            self.custom_text_input.setText(subtitle_text)
 
 
     def generate_gif(self):
