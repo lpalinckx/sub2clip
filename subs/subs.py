@@ -172,16 +172,14 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
 
         try:
             # Create the gif
-            ffmpeg_command = (
+            (
                 FFmpeg()
                 .option("y")
                 .input(output_clip)
                 .output(output_gif, {'filter_complex': vf})
-            )
-
-            ffmpeg_command.execute()
+            ).execute()
         except FFmpegError as e:
-            return f'could not create the gif: {e}. FFmpeg command = {" ".join(ffmpeg_command.arguments)}', False
+            return f'could not create the gif: {e}', False
 
         if mp4_copy:
             try:
@@ -190,15 +188,13 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
                 vf = ",".join(vf_filters)
 
                 # Create MP4 copy
-                ffmpeg_command = (
+                (
                     FFmpeg()
                     .option("y")
                     .input(output_clip)
                     .output(output_mp4, {'filter_complex': vf})
-                )
-
-                ffmpeg_command.execute()
+                ).execute()
             except FFmpegError as e:
-                return f'could not create the mp4: {e}. FFmpeg command = {" ".join(ffmpeg_command.arguments)}', False
+                return f'could not create the mp4: {e}', False
 
     return None, True
