@@ -30,7 +30,7 @@ def extract_subs(video_path):
                 )
             ).execute()
         except FFmpegError as e:
-            return f'could not extract subtitles from video {video_path}: {e}', False
+            return f'could not extract subtitles from video {video_path}: {e}. FFmpeg command = {" ".join(e.arguments)}', False
 
         if os.path.exists(output_path):
             return pysubs2.load(output_path), True
@@ -179,7 +179,7 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
                 .output(output_gif, {'filter_complex': vf})
             ).execute()
         except FFmpegError as e:
-            return f'could not create the gif: {e}', False
+            return f'could not create the gif: {e}. FFmpeg command = {" ".join(e.arguments)}', False
 
         if mp4_copy:
             try:
@@ -195,6 +195,6 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
                     .output(output_mp4, {'filter_complex': vf})
                 ).execute()
             except FFmpegError as e:
-                return f'could not create the mp4: {e}', False
+                return f'could not create the mp4: {e}. FFmpeg command = {" ".join(e.arguments)}', False
 
     return None, True
