@@ -6,6 +6,17 @@ from ffmpeg import (FFmpeg, FFmpegError)
 # Functions in this library return a second boolean value indicating success/failure
 # In case of failure, the first return value is the error message
 
+def _return_ffmpeg_command(ffmpeg):
+    """Prints the complete FFmpeg command with quotation marks around the filters tag, making copy-pasting into a shell very easy
+
+    Args:
+        ffmpeg (FFmpeg or FFmpegError): FFmpeg object containing 'arguments' field
+    """
+    args = ffmpeg.arguments
+    filter_idx = args.index('-filter_complex') + 1
+    args[filter_idx] = f'"{args[filter_idx]}"'
+    return ' '.join(args)
+
 def extract_subs(video_path):
     """Extract subs with FFmpeg to a tmp file (pysubs2 _only_ works with files).
     Load them with pysubs2 and return the result.
@@ -30,7 +41,7 @@ def extract_subs(video_path):
                 )
             ).execute()
         except FFmpegError as e:
-            return f'could not extract subtitles from video {video_path}: {e}. FFmpeg command = {" ".join(e.arguments)}', False
+            return f'could not extract subtitles from video {video_path}: {e}. FFmpeg command = {_return_ffmpeg_command(e)}', False
 
         if os.path.exists(output_path):
             return pysubs2.load(output_path), True
@@ -179,7 +190,7 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
                 .output(output_gif, {'filter_complex': vf})
             ).execute()
         except FFmpegError as e:
-            return f'could not create the gif: {e}. FFmpeg command = {" ".join(e.arguments)}', False
+            return f'could not create the gif: {e}. FFmpeg command = {_return_ffmpeg_command(e)}', False
 
         if mp4_copy:
             try:
@@ -195,6 +206,6 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
                     .output(output_mp4, {'filter_complex': vf})
                 ).execute()
             except FFmpegError as e:
-                return f'could not create the mp4: {e}. FFmpeg command = {" ".join(e.arguments)}', False
+                return f'could not create the mp4: {e}. FFmpeg command = {_return_ffmpeg_command(e)}', False
 
     return None, True
