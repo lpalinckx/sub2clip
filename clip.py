@@ -21,10 +21,20 @@ class SubtitleListItem(QListWidgetItem):
     """
     Custom class to show the subtitle in the List widget with the source video stored
     """
-    def __init__(self, text, source_video):
-        super().__init__(text)
-        self.setStatusTip(os.path.basename(source_video))
+    def __init__(self, sub_text, source_video, start_ms, end_ms):
+        self.sub_text = sub_text
         self.source_video = source_video
+        self.start_ms = start_ms
+        self.end_ms   = end_ms
+        self.start_s = start_ms / 1000
+        self.end_s   = end_ms / 1000
+
+        super().__init__(str(self))
+        self.video_basename = os.path.basename(source_video)
+        self.setStatusTip(self.video_basename)
+
+    def __str__(self) -> str:
+        return f"[{self.start_s}s - {self.end_s}s] {self.sub_text}"
 
 class Sub2Clip(QMainWindow):
     def __init__(self):
@@ -76,11 +86,11 @@ class Sub2Clip(QMainWindow):
         self.start_time.setSuffix(" s")
         self.start_time.setMaximum(9999)
         self.start_time.setSingleStep(1)
-        self.start_time.setDecimals(1)
+        self.start_time.setDecimals(2)
         self.end_time = QDoubleSpinBox()
         self.end_time.setPrefix("End: ")
         self.end_time.setSuffix(" s")
-        self.end_time.setDecimals(1)
+        self.end_time.setDecimals(2)
         self.end_time.setSingleStep(1)
         self.end_time.setMaximum(9999)
         clip_layout = QHBoxLayout()
@@ -299,8 +309,7 @@ class Sub2Clip(QMainWindow):
             for sub in subfile:
                 sub_norm = self.normalize_string(sub.text).lower()
                 if query_norm in sub_norm:
-                    text = f"[{sub.start // 1000}s - {sub.end // 1000}s] {sub.text}"
-                    widget = SubtitleListItem(text, source_video=video)
+                    widget = SubtitleListItem(sub_text=sub.text, source_video=video, start_ms=sub.start, end_ms=sub.end)
                     self.subtitle_results.addItem(widget)
 
 
@@ -309,9 +318,7 @@ class Sub2Clip(QMainWindow):
         for (subfile, video) in self.subtitles:
             self.add_header(video)
             for sub in subfile:
-                text = f"[{sub.start // 1000}s - {sub.end // 1000}s] {sub.text}"
-                widget = SubtitleListItem(text, source_video=video)
-                # self.subtitle_results.addItem(result)
+                widget = SubtitleListItem(sub_text=sub.text, source_video=video, start_ms=sub.start, end_ms=sub.end)
                 self.subtitle_results.addItem(widget)
 
 
@@ -319,11 +326,9 @@ class Sub2Clip(QMainWindow):
         if isinstance(item, SubtitleListItem):
             text = item.text()
             self.video_file = item.source_video
-            subtitle_timing, subtitle_text = text.split(']')
-            start, end = subtitle_timing.strip('[]').replace('s','').split(' - ')
-            self.start_time.setValue(float(start))
-            self.end_time.setValue(float(end))
-            self.custom_text_input.setText(subtitle_text)
+            self.start_time.setValue(float(item.start_s))
+            self.end_time.setValue(float(item.end_s))
+            self.custom_text_input.setText(item.sub_text)
 
 
     def generate_gif(self):
