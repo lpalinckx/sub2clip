@@ -1,4 +1,3 @@
-- Fix \N search
 - load application with flags for autoloading videos/dirs
 - put UI on different thread with QThread
 - real-time search (don't wait for enter)

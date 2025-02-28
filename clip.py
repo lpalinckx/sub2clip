@@ -276,7 +276,7 @@ class Sub2Clip(QMainWindow):
 
     def normalize_string(self, s):
         return ''.join(
-            c for c in unicodedata.normalize('NFD', s)
+            c for c in unicodedata.normalize('NFD', s.replace('\\N', ' '))
             if unicodedata.category(c) != 'Mn'
         )
 
