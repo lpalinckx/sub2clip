@@ -3,15 +3,17 @@ import os
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QPushButton, QLabel,
     QFileDialog, QLineEdit, QHBoxLayout, QSpinBox, QWidget, QListWidget, QCheckBox,
-    QDoubleSpinBox, QComboBox, QListWidgetItem
+    QDoubleSpinBox, QComboBox, QListWidgetItem, QAbstractItemView
 )
 from PyQt5.QtCore import (Qt)
 from PyQt5.QtGui import (QMovie)
 from pathlib import Path
 from matplotlib import font_manager
 import platform
+import tempfile
 import unicodedata
-from subs.subs import (extract_subs, generate_gif)
+import time
+from subs.subs import (extract_subs, generate_gif, concat_mp4, mp4_to_gif)
 
 from loguru import logger
 logger.remove()
@@ -21,13 +23,14 @@ class SubtitleListItem(QListWidgetItem):
     """
     Custom class to show the subtitle in the List widget with the source video stored
     """
-    def __init__(self, sub_text, source_video, start_ms, end_ms):
+    def __init__(self, sub_text, source_video, start_ms, end_ms, sub_id):
         self.sub_text = sub_text
         self.source_video = source_video
         self.start_ms = start_ms
         self.end_ms   = end_ms
         self.start_s = start_ms / 1000
         self.end_s   = end_ms / 1000
+        self.sub_id = sub_id
 
         super().__init__(str(self))
         self.video_basename = os.path.basename(source_video)
@@ -73,6 +76,7 @@ class Sub2Clip(QMainWindow):
         self.subtitle_search_button = QPushButton("Search")
         self.subtitle_search_button.clicked.connect(self.search_subtitles)
         self.subtitle_results = QListWidget()
+        self.subtitle_results.setSelectionMode(QAbstractItemView.SelectionMode.ContiguousSelection)
         self.subtitle_results.itemClicked.connect(self.select_search_result)
         subtitle_layout = QHBoxLayout()
         subtitle_layout.addWidget(self.subtitle_search_input)
@@ -174,7 +178,7 @@ class Sub2Clip(QMainWindow):
 
         # Generate GIF Button
         self.generate_gif_button = QPushButton("Generate GIF")
-        self.generate_gif_button.clicked.connect(self.generate_gif)
+        self.generate_gif_button.clicked.connect(self.generate)
         self.main_layout.addWidget(self.generate_gif_button)
 
         # Status
@@ -195,6 +199,7 @@ class Sub2Clip(QMainWindow):
         self.video_file = None
         self.subtitle_file = None
         self.subtitles = []
+        self.subtitle_list_items = []
 
         if platform.system() == 'Windows':
             self.selected_font_path = Path("C:/Windows/Fonts/arial.ttf")
@@ -306,10 +311,16 @@ class Sub2Clip(QMainWindow):
                 self.subtitle_results.takeItem(self.subtitle_results.row(h))
                 continue
 
-            for sub in subfile:
-                sub_norm = self.normalize_string(sub.text).lower()
+            for subItem in self.subtitle_list_items:
+                sub_norm = self.normalize_string(subItem.sub_text).lower()
                 if query_norm in sub_norm:
-                    widget = SubtitleListItem(sub_text=sub.text, source_video=video, start_ms=sub.start, end_ms=sub.end)
+                    widget = SubtitleListItem(
+                        sub_text=subItem.sub_text,
+                        source_video=subItem.source_video,
+                        start_ms=subItem.start_ms,
+                        end_ms=subItem.end_ms,
+                        sub_id=subItem.sub_id
+                    )
                     self.subtitle_results.addItem(widget)
 
 
@@ -317,18 +328,104 @@ class Sub2Clip(QMainWindow):
         self.subtitle_results.clear()
         for (subfile, video) in self.subtitles:
             self.add_header(video)
-            for sub in subfile:
-                widget = SubtitleListItem(sub_text=sub.text, source_video=video, start_ms=sub.start, end_ms=sub.end)
+            for idx, sub in enumerate(subfile):
+                widget = SubtitleListItem(
+                    sub_text=sub.text,
+                    source_video=video,
+                    start_ms=sub.start,
+                    end_ms=sub.end,
+                    sub_id=idx
+                )
+                self.subtitle_list_items.append(widget)
                 self.subtitle_results.addItem(widget)
 
 
     def select_search_result(self, item):
         if isinstance(item, SubtitleListItem):
-            text = item.text()
+            selected_items = self.subtitle_results.selectedItems()
+            selected_items.sort(key=lambda i: i.start_ms)
+
             self.video_file = item.source_video
-            self.start_time.setValue(float(item.start_s))
-            self.end_time.setValue(float(item.end_s))
+            self.start_time.setValue(float(selected_items[0].start_s))
+            self.end_time.setValue(float(selected_items[-1].end_s))
             self.custom_text_input.setText(item.sub_text)
+
+
+    def generate(self):
+        if not os.path.exists('output/'):
+            os.makedirs('output')
+
+        items = self.subtitle_results.selectedItems()
+        items.sort(key=lambda i: i.start_ms)
+
+        if len(items) > 1:
+            if any(curr.sub_id != prev.sub_id + 1 for prev, curr in zip(items, items[1:])):
+                s = 'Illegal sequence of subtitles: Selected subtitles must be sequential'
+                self.status_label.setText(s)
+
+                logger.error(s)
+                return
+
+            with tempfile.TemporaryDirectory() as tmp:
+                mp4_res = f'output/mp4_concat.mp4'
+                gif_res = f'output/output.gif'
+                clips = []
+
+                for idx, sub_item in enumerate(items):
+                    clip = os.path.join(tmp, f'clip{idx}.mp4')
+                    gif  = os.path.join(tmp, f'gif{idx}.gif')
+                    mp4  = os.path.join(tmp, f'output{idx}.mp4')
+                    end = items[idx + 1].start_s if idx < len(items) - 1 else sub_item.end_s
+
+                    err, ok = generate_gif(
+                        start_time=sub_item.start_s,
+                        end_time=end,
+                        output_clip=clip,
+                        output_gif=gif,
+                        custom_text=sub_item.sub_text,
+                        caption='',
+                        video_path=self.video_file,
+                        fps=self.fps.value(),
+                        crop=self.square_checkbox.isChecked(),
+                        boomerang=False,
+                        resolution=self.resolution.value(),
+                        font=self.selected_font_path,
+                        font_size=self.font_size.value(),
+                        fancy_colors=self.fancy_colors_checkbox.isChecked(),
+                        mp4_copy=True,
+                        output_mp4=mp4
+                    )
+
+                    if ok:
+                        clips.append(mp4)
+                        logger.info(f'Generated clip {idx+1}/{len(items)}')
+                    else:
+                        logger.error(f'Failed generating clip {idx+1}/{len(items)}: {err}')
+
+                err, ok = concat_mp4(clips, mp4_res)
+
+                if ok:
+                    logger.success('Concatted mp4s')
+                    err, ok = mp4_to_gif(
+                        mp4=mp4_res,
+                        output_gif=gif_res,
+                        fps=self.fps.value(),
+                        crop=self.square_checkbox.isChecked(),
+                        resolution=self.resolution.value(),
+                        fancy_colors=self.fancy_colors_checkbox.isChecked()
+                    )
+                    if ok:
+                        size_mb = os.path.getsize(gif_res) / (1024 * 1024)
+                        size_mb = f"{size_mb:.2f}"
+                        self.status_label.setText(f"GIF generated: {gif_res}, size={size_mb}MB")
+                        self.preview_gif(gif_res)
+                        logger.success(f'{gif_res} generated, size={size_mb}MB')
+                    else:
+                        logger.error(err)
+                else:
+                    logger.error(err)
+        else:
+            self.generate_gif()
 
 
     def generate_gif(self):

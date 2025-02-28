@@ -99,6 +99,85 @@ def add_text(tmp, vf_filters, text, font, font_size, padding=0, is_caption=False
             f"bordercolor=black:borderw={font_size/20}"
         )
 
+def concat_mp4(mp4s, output):
+    """Concats the given mp4s into a single mp4
+
+    Args:
+        mp4s ([str]): List of paths for each mp4
+        output (str): Output path for the concatted mp4
+
+    Returns:
+        Tuple: (None, True) when concat was successful or (str, False) when unsuccessful, the str value is the error message.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        to_concat = os.path.join(tmp, 'mp4list.txt')
+        with open(to_concat, 'w') as f:
+            for mp4 in mp4s:
+                f.write(f"file '{mp4}'\n")
+
+        try:
+            (
+                FFmpeg()
+                .option('y')
+                .option('f', 'concat')
+                .option('safe', 0)
+                .input(to_concat)
+                .output(
+                    output,
+                    {
+                        'c:v': 'copy',
+                        'c:a': 'copy'
+                    }
+                )
+            ).execute()
+        except FFmpegError as e:
+            return f'Could not concat mp4s: {e}. FFmpeg command = {' '.join(e.arguments)}', False
+
+        return None, True
+
+def mp4_to_gif(mp4, output_gif, fps, crop, resolution, fancy_colors):
+    """Converts the given mp4 to a GIF
+
+    Args:
+        mp4 (str): Path to the mp4 file
+        output_gif (str): Output path for the GIF
+        fps (int): Frames per second for the GIF
+        crop (boolean): Crop the GIF to square
+        resolution (int): Output resolution of the GIF
+        fancy_colors (boolean): include all colors in gif, greatly increases GIF file size
+
+    Returns:
+        Tuple: (None, True) if the conversion was successful. (str, False) when unsuccessful, the str contains the error message
+    """
+    filters = []
+
+    filters.append(f'fps={fps}')
+
+    if crop:
+        filters.append('crop=in_h:in_h')
+
+    filters.append(f'scale={resolution}:-1:flags=lanczos')
+
+    # Palette
+    if fancy_colors:
+        filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
+    else:
+        filters.append("split[s0][s1];[s0]palettegen=max_colors=32[p];[s1][p]paletteuse=dither=bayer")
+
+    fltrs = ','.join(filters)
+
+    try:
+        (
+            FFmpeg()
+            .option('y')
+            .input(mp4)
+            .output(output_gif, {'filter_complex': fltrs})
+        ).execute()
+    except FFmpegError as e:
+        return f'Failed to convert MP4 to GIF: {e}. FFmpeg command = {_return_ffmpeg_command(e)}', False
+
+    return None, True
+
 def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, caption, video_path, fps, crop, boomerang, resolution, font, font_size, fancy_colors, mp4_copy=False, output_mp4=""):
     """Generate a GIF from a video file using FFmpeg
 
