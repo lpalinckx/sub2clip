@@ -12,7 +12,6 @@ from matplotlib import font_manager
 import platform
 import tempfile
 import unicodedata
-import time
 from subs.subs import (extract_subs, generate_gif, concat_mp4, mp4_to_gif)
 
 from loguru import logger
