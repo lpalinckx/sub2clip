@@ -1,6 +1,5 @@
 - load application with flags for autoloading videos/dirs
 - put UI on different thread with QThread
-- real-time search (don't wait for enter)
 - QProgressbar for visualising progress
 - move status label to a QMessageBox
 - allow edits to the subtitles in multi-sub gifs

@@ -71,7 +71,7 @@ class Sub2Clip(QMainWindow):
         # Subtitle Search
         self.subtitle_search_input = QLineEdit()
         self.subtitle_search_input.setPlaceholderText("Search subtitles...")
-        self.subtitle_search_input.returnPressed.connect(self.search_subtitles)
+        self.subtitle_search_input.textChanged.connect(self.search_subtitles)
         self.subtitle_search_button = QPushButton("Search")
         self.subtitle_search_button.clicked.connect(self.search_subtitles)
         self.subtitle_results = QListWidget()
@@ -325,6 +325,7 @@ class Sub2Clip(QMainWindow):
 
     def load_all_subs(self):
         self.subtitle_results.clear()
+        self.subtitle_list_items = []
         for (subfile, video) in self.subtitles:
             self.add_header(video)
             for idx, sub in enumerate(subfile):
