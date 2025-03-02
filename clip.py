@@ -10,7 +10,6 @@ from PyQt5.QtGui import (QMovie)
 from pathlib import Path
 from matplotlib import font_manager
 import platform
-import tempfile
 import unicodedata
 from subs.subs import (extract_subs, generate_gif, generate_sequence)
 
