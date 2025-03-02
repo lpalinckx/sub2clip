@@ -12,6 +12,7 @@ from matplotlib import font_manager
 import platform
 import unicodedata
 from subs.subs import (extract_subs, generate_gif, generate_sequence)
+import argparse
 
 from loguru import logger
 logger.remove()
@@ -38,7 +39,7 @@ class SubtitleListItem(QListWidgetItem):
         return f"[{self.start_s}s - {self.end_s}s] {self.sub_text}"
 
 class Sub2Clip(QMainWindow):
-    def __init__(self):
+    def __init__(self, video=None, directory=None):
         super().__init__()
         self.setWindowTitle("Sub2Clip")
         self.setGeometry(100, 100, 800, 600)
@@ -203,9 +204,16 @@ class Sub2Clip(QMainWindow):
             self.selected_font_path = Path("C:/Windows/Fonts/arial.ttf")
         else: self.selected_font_path = ''
 
+        if video:
+            logger.info(f'Loading video path {video}')
+            self.load_video(video)
+        elif directory:
+            logger.info(f'Loading directory {directory}')
+            self.load_directory(directory=directory)
 
-    def load_directory(self):
-        self.directory = QFileDialog.getExistingDirectory(self, caption="Select Directory", directory="")
+
+    def load_directory(self, directory=None):
+        self.directory = directory if directory else QFileDialog.getExistingDirectory(self, caption="Select Directory", directory="")
         if self.directory:
             self.video_label.setText(f'Selected Directory: {os.path.basename(self.directory)}')
             self.videos = []
@@ -466,8 +474,18 @@ class Sub2Clip(QMainWindow):
 
 # Run the app
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        prog = 'Sub2Clip'
+    )
+    parser.add_argument('--video', help="path to a video")
+    parser.add_argument('--directory', help="path to a directory containing videos")
+    args = parser.parse_args()
+
+    directory_path = args.directory if args.directory else None
+    video_path     = args.video  if args.video  else None
+
     app = QApplication(sys.argv)
-    window = Sub2Clip()
+    window = Sub2Clip(video=video_path, directory=directory_path)
     window.show()
 
     app.aboutToQuit.connect(window.close)
