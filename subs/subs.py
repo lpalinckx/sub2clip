@@ -163,7 +163,7 @@ def concat_mp4(mp4s, output):
                 )
             ).execute()
         except FFmpegError as e:
-            return f'Could not concat mp4s: {e}. FFmpeg command = {' '.join(e.arguments)}', False
+            return f"Could not concat mp4s: {e}. FFmpeg command = {' '.join(e.arguments)}", False
 
         return None, True
 
