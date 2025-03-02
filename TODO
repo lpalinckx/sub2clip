@@ -3,3 +3,4 @@
 - QProgressbar for visualising progress
 - move status label to a QMessageBox
 - allow edits to the subtitles in multi-sub gifs
+- Fix issue with search results when loading directories

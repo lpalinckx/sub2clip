@@ -12,7 +12,7 @@ from matplotlib import font_manager
 import platform
 import tempfile
 import unicodedata
-from subs.subs import (extract_subs, generate_gif, concat_mp4, mp4_to_gif)
+from subs.subs import (extract_subs, generate_gif, generate_sequence)
 
 from loguru import logger
 logger.remove()
@@ -366,64 +366,40 @@ class Sub2Clip(QMainWindow):
                 logger.error(s)
                 return
 
-            with tempfile.TemporaryDirectory() as tmp:
-                mp4_res = f'output/mp4_concat.mp4'
-                gif_res = f'output/output.gif'
-                clips = []
+            video_settings = [
+                {
+                    'start_time': sub.start_s,
+                    'end_time': sub.end_s,
+                    'custom_text': sub.sub_text,
+                    'font': self.selected_font_path,
+                    'font_size': self.font_size.value()
+                } for sub in items
+            ]
 
-                for idx, sub_item in enumerate(items):
-                    clip = os.path.join(tmp, f'clip{idx}.mp4')
-                    gif  = os.path.join(tmp, f'gif{idx}.gif')
-                    mp4  = os.path.join(tmp, f'output{idx}.mp4')
-                    end = items[idx + 1].start_s if idx < len(items) - 1 else sub_item.end_s
+            output_gif = 'output/output.gif'
+            output_mp4 = 'output/mp4_concat.mp4'
 
-                    err, ok = generate_gif(
-                        start_time=sub_item.start_s,
-                        end_time=end,
-                        output_clip=clip,
-                        output_gif=gif,
-                        custom_text=sub_item.sub_text,
-                        caption='',
-                        video_path=self.video_file,
-                        fps=self.fps.value(),
-                        crop=self.square_checkbox.isChecked(),
-                        boomerang=False,
-                        resolution=self.resolution.value(),
-                        font=self.selected_font_path,
-                        font_size=self.font_size.value(),
-                        fancy_colors=self.fancy_colors_checkbox.isChecked(),
-                        mp4_copy=True,
-                        output_mp4=mp4
-                    )
+            err, ok = generate_sequence(
+                source_video=self.video_file,
+                video_settings=video_settings,
+                output_gif=output_gif,
+                output_mp4=output_mp4,
+                caption=self.caption_text_input.text().strip(),
+                fps=self.fps.value(),
+                crop=self.square_checkbox.isChecked(),
+                resolution=self.resolution.value(),
+                fancy_colors=self.fancy_colors_checkbox.isChecked()
+            )
 
-                    if ok:
-                        clips.append(mp4)
-                        logger.info(f'Generated clip {idx+1}/{len(items)}')
-                    else:
-                        logger.error(f'Failed generating clip {idx+1}/{len(items)}: {err}')
+            if ok:
+                size_mb = os.path.getsize(output_gif) / (1024 * 1024)
+                size_mb = f"{size_mb:.2f}"
+                self.status_label.setText(f"GIF generated: {output_gif}, size={size_mb}MB")
+                self.preview_gif(output_gif)
+                logger.success(f'{output_gif} generated, size={size_mb}MB')
+            else:
+                logger.error(err)
 
-                err, ok = concat_mp4(clips, mp4_res)
-
-                if ok:
-                    logger.success('Concatted mp4s')
-                    err, ok = mp4_to_gif(
-                        mp4=mp4_res,
-                        output_gif=gif_res,
-                        fps=self.fps.value(),
-                        crop=self.square_checkbox.isChecked(),
-                        resolution=self.resolution.value(),
-                        fancy_colors=self.fancy_colors_checkbox.isChecked()
-                    )
-                    if ok:
-                        size_mb = os.path.getsize(gif_res) / (1024 * 1024)
-                        size_mb = f"{size_mb:.2f}"
-                        self.status_label.setText(f"GIF generated: {gif_res}, size={size_mb}MB")
-                        self.preview_gif(gif_res)
-                        logger.success(f'{gif_res} generated, size={size_mb}MB')
-                    else:
-                        logger.error(err)
-                else:
-                    logger.error(err)
         else:
             self.generate_gif()
 
