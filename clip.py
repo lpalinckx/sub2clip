@@ -11,7 +11,7 @@ from pathlib import Path
 from matplotlib import font_manager
 import platform
 import unicodedata
-from subs.subs import (extract_subs, generate_gif, generate_sequence)
+from subs.subs import (extract_subs, generate_video, generate_sequence)
 import argparse
 
 from loguru import logger
@@ -103,7 +103,7 @@ class Sub2Clip(QMainWindow):
 
         # Custom Text
         self.custom_text_input = QLineEdit()
-        self.custom_text_input.setPlaceholderText("Enter custom text for the GIF (optional)...")
+        self.custom_text_input.setPlaceholderText("Enter custom text as subtitle (optional)...")
         self.main_layout.addWidget(self.custom_text_input)
 
         # Caption
@@ -118,13 +118,13 @@ class Sub2Clip(QMainWindow):
         self.fps.setMaximum(60)
 
         # Crop to square or not
-        self.square_checkbox = QCheckBox("Square GIF (crop sides)")
+        self.square_checkbox = QCheckBox("Square output (crop sides)")
 
         # Fancy colors (larger GIF size)
         self.fancy_colors_checkbox = QCheckBox("Fancy colors")
 
-        # Create boomerang gif?
-        self.boomerang_checkbox = QCheckBox("Boomerang GIF")
+        # Create boomerang?
+        self.boomerang_checkbox = QCheckBox("Boomerang")
 
         # Also create mp4 with HC subs? (mp4s have better compression)
         self.mp4_copy_checkbox = QCheckBox("MP4 with subs")
@@ -175,19 +175,28 @@ class Sub2Clip(QMainWindow):
         self.font_dropdown.currentIndexChanged.connect(self.on_font_select)
         self.main_layout.addWidget(self.font_dropdown)
 
-        # Generate GIF Button
-        self.generate_gif_button = QPushButton("Generate GIF")
-        self.generate_gif_button.clicked.connect(self.generate)
-        self.main_layout.addWidget(self.generate_gif_button)
+        # Generate Button
+        self.generate_vid_button = QPushButton("Generate")
+        self.generate_vid_button.clicked.connect(self.generate)
+
+        # Format dropdown
+        self.select_format = QComboBox()
+        self.select_format.addItems(['gif', 'webp'])
+        self.select_format.currentTextChanged.connect(self.format_changed)
+
+        self.generate_layout = QHBoxLayout()
+        self.generate_layout.addWidget(self.generate_vid_button, stretch=3)
+        self.generate_layout.addWidget(self.select_format, stretch=1)
+        self.main_layout.addLayout(self.generate_layout)
 
         # Status
         self.status_label = QLabel("")
         self.main_layout.addWidget(self.status_label)
 
-        # GIF Preview
-        self.gif_preview = QLabel("GIF Preview will appear here")
-        self.gif_preview.setAlignment(Qt.AlignCenter)
-        self.main_layout.addWidget(self.gif_preview)
+        # Preview
+        self.vid_preview = QLabel("Preview will appear here")
+        self.vid_preview.setAlignment(Qt.AlignCenter)
+        self.main_layout.addWidget(self.vid_preview)
 
         # Set Layout
         container = QWidget()
@@ -273,6 +282,10 @@ class Sub2Clip(QMainWindow):
                 logger.error(subs)
                 self.status_label.setText("No subtitles found.")
 
+    def format_changed(self):
+        if self.select_format.currentText() == 'gif':
+            self.fancy_colors_checkbox.setEnabled(True)
+        else: self.fancy_colors_checkbox.setEnabled(False)
 
     def on_font_select(self):
         font_str = self.font_dropdown.currentText()
@@ -383,13 +396,14 @@ class Sub2Clip(QMainWindow):
                 } for sub in items
             ]
 
-            output_gif = 'output/output.gif'
+            output_vid = f'output/output.{self.select_format.currentText()}'
             output_mp4 = 'output/mp4_concat.mp4'
 
             err, ok = generate_sequence(
                 source_video=self.video_file,
+                output_format=self.select_format.currentText(),
                 video_settings=video_settings,
-                output_gif=output_gif,
+                output_path=output_vid,
                 output_mp4=output_mp4,
                 caption=self.caption_text_input.text().strip(),
                 fps=self.fps.value(),
@@ -399,19 +413,19 @@ class Sub2Clip(QMainWindow):
             )
 
             if ok:
-                size_mb = os.path.getsize(output_gif) / (1024 * 1024)
+                size_mb = os.path.getsize(output_vid) / (1024 * 1024)
                 size_mb = f"{size_mb:.2f}"
-                self.status_label.setText(f"GIF generated: {output_gif}, size={size_mb}MB")
-                self.preview_gif(output_gif)
-                logger.success(f'{output_gif} generated, size={size_mb}MB')
+                self.status_label.setText(f"'{output_vid}' generated, size={size_mb}MB")
+                self.preview_vid(output_vid)
+                logger.success(f'{output_vid} generated, size={size_mb}MB')
             else:
                 logger.error(err)
 
         else:
-            self.generate_gif()
+            self.generate_vid()
 
 
-    def generate_gif(self):
+    def generate_vid(self):
         if not self.video_file:
             self.status_label.setText("Please load a video first.")
             return
@@ -423,7 +437,7 @@ class Sub2Clip(QMainWindow):
             return
 
         output_clip = "output/clip.mp4"
-        output_gif = "output/output.gif"
+        output_vid = f"output/output.{self.select_format.currentText()}"
         output_mp4 = "output/output.mp4"
         custom_text = self.custom_text_input.text().strip()
         caption = self.caption_text_input.text().strip()
@@ -431,11 +445,11 @@ class Sub2Clip(QMainWindow):
         if not os.path.exists('output/'):
             os.makedirs('output')
 
-        err, ok = generate_gif(
+        err, ok = generate_video(
                 start,
                 end,
                 output_clip,
-                output_gif,
+                output_vid,
                 custom_text,
                 caption,
                 self.video_file,
@@ -446,28 +460,29 @@ class Sub2Clip(QMainWindow):
                 self.selected_font_path,
                 self.font_size.value(),
                 self.fancy_colors_checkbox.isChecked(),
+                self.select_format.currentText(),
                 self.mp4_copy_checkbox.isChecked(),
                 output_mp4
             )
 
         if ok:
-            size_mb = os.path.getsize(output_gif) / (1024 * 1024)
+            size_mb = os.path.getsize(output_vid) / (1024 * 1024)
             size_mb = f"{size_mb:.2f}"
-            self.status_label.setText(f"GIF generated: {output_gif}, size={size_mb}MB")
-            self.preview_gif(output_gif)
-            logger.success(f'{output_gif} generated, size={size_mb}MB')
+            self.status_label.setText(f"{output_vid} generated, size={size_mb}MB")
+            self.preview_vid(output_vid)
+            logger.success(f'{output_vid} generated, size={size_mb}MB')
             if self.mp4_copy_checkbox.isChecked():
                 size_mb_mp4 = os.path.getsize(output_mp4) / (1024 * 1024)
                 size_mb_mp4 = f"{size_mb_mp4:.2f}"
                 logger.success(f'{output_mp4} generated, size={size_mb_mp4}MB')
         else:
-            self.status_label.setText(f"Something went wrong creating the GIF")
+            self.status_label.setText(f"Something went wrong during generation")
             logger.error(err)
 
-    def preview_gif(self, gif_path):
-        self.gif_movie = QMovie(gif_path)
-        self.gif_preview.setMovie(self.gif_movie)
-        self.gif_movie.start()
+    def preview_vid(self, vid_path):
+        self.vid_movie = QMovie(vid_path)
+        self.vid_preview.setMovie(self.vid_movie)
+        self.vid_movie.start()
 
     def close(self):
         logger.success("closing...")
