@@ -13,8 +13,9 @@ def _return_ffmpeg_command(ffmpeg):
         ffmpeg (FFmpeg or FFmpegError): FFmpeg object containing 'arguments' field
     """
     args = ffmpeg.arguments
-    filter_idx = args.index('-filter_complex') + 1
-    args[filter_idx] = f'"{args[filter_idx]}"'
+    if '-filter_complex' in args:
+        filter_idx = args.index('-filter_complex') + 1
+        args[filter_idx] = f'"{args[filter_idx]}"'
     return ' '.join(args)
 
 def extract_subs(video_path):
@@ -48,12 +49,11 @@ def extract_subs(video_path):
         else:
             return f'could not extract subtitles from video {video_path}', False
 
-def add_text(tmp, vf_filters, text, font, font_size, padding=0, is_caption=False):
-    """Adds the drawtext filters to vf_filters with the corresponding text and font settings
+def text_filters(tmp, text, font, font_size, padding=0, is_caption=False):
+    """Returns the drawtext filters with the corresponding text and font settings
 
     Args:
         tmp (TemporaryDirectory): Temp directory of the system
-        vf_filters (list): List of vf_filters to be applied to the video
         text (str): Text string to add, can contain multiple lines
         font (str): Path to the font to be used
         font_size (int): Font size used
@@ -72,6 +72,7 @@ def add_text(tmp, vf_filters, text, font, font_size, padding=0, is_caption=False
     # Calculate offset for caption
     text_height    = len(lines) * font_size
     padding_offset = (padding - text_height)/2
+    vf = []
 
     for i, line in enumerate(lines, start=1):
         filename = f"caption-{i}.txt" if is_caption else f"subtitle-{i}.txt"
@@ -90,7 +91,7 @@ def add_text(tmp, vf_filters, text, font, font_size, padding=0, is_caption=False
         x = "10" if is_caption else "(w-text_w)/2"
         y = f"{padding_offset} + {i}*line_h - line_h" if is_caption else f"(h-{i}*line_h)"
 
-        vf_filters.append(
+        vf.append(
             f"drawtext=textfile='{text_file}':"
             f"{fontfile_str}"
             f"fontcolor=white:"
@@ -98,6 +99,7 @@ def add_text(tmp, vf_filters, text, font, font_size, padding=0, is_caption=False
             f"x={x}:y={y}:"
             f"bordercolor=black:borderw={font_size/20}"
         )
+    return vf
 
 def _run_ffmpeg(input_path, output_path, filters=None, start_time=None, duration=None):
     """Runs FFmpeg command with optional filters, start_time and duration. Always overwrites the output_path
@@ -121,7 +123,7 @@ def _run_ffmpeg(input_path, output_path, filters=None, start_time=None, duration
         ffmpeg = ffmpeg.option('t', value=duration)
 
     if filters:
-        ffmpeg = ffmpeg.output(output_path, {'filter_complex': filters})
+        ffmpeg = ffmpeg.output(output_path, {'filter_complex': filters, 'loop': 0})
     else:
         ffmpeg = ffmpeg.output(output_path, {'c:v': 'copy', 'c:a': 'copy'})
 
@@ -167,17 +169,18 @@ def concat_mp4(mp4s, output):
 
         return None, True
 
-def mp4_to_gif(mp4, output_gif, caption, fps, crop, resolution, fancy_colors):
-    """Converts the given mp4 to a GIF
+def mp4_to_vid(mp4, output_format, output_path, caption, fps, crop, resolution, fancy_colors=False):
+    """Converts the given mp4 to another given videoformat
 
     Args:
         mp4 (str): Path to the mp4 file
-        output_gif (str): Output path for the GIF
-        caption (str): Caption to put on top of the GIF
-        fps (int): Frames per second for the GIF
-        crop (boolean): Crop the GIF to square
-        resolution (int): Output resolution of the GIF
-        fancy_colors (boolean): include all colors in gif, greatly increases GIF file size
+        output_format (str): GIF or WEBP
+        output_path (str): Output path
+        caption (str): Caption to put on top
+        fps (int): Frames per second
+        crop (boolean): Crop the output to a square
+        resolution (int): Output resolution
+        fancy_colors (boolean, optional): include all colors in gif, greatly increases GIF file size
 
     Returns:
         Tuple: (None, True) if the conversion was successful. (str, False) when unsuccessful, the str contains the error message
@@ -190,20 +193,22 @@ def mp4_to_gif(mp4, output_gif, caption, fps, crop, resolution, fancy_colors):
     filters.append(f'scale={resolution}:-1:flags=lanczos')
 
     # Palette
-    if fancy_colors:
-        filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
-    else:
-        filters.append("split[s0][s1];[s0]palettegen=max_colors=32[p];[s1][p]paletteuse=dither=bayer")
+    if (output_format == 'gif'):
+        if fancy_colors:
+            filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
+        else:
+            filters.append("split[s0][s1];[s0]palettegen=max_colors=32[p];[s1][p]paletteuse=dither=bayer")
 
     fltrs = ','.join(filters)
 
-    return _run_ffmpeg(mp4, output_gif, filters=fltrs)
+    return _run_ffmpeg(mp4, output_path, filters=fltrs)
 
-def generate_sequence(source_video, video_settings, output_gif, output_mp4, caption, fps, crop, resolution, fancy_colors):
+def generate_sequence(source_video, output_format, video_settings, output_path, output_mp4, caption, fps, crop, resolution, fancy_colors=False):
     """Generates a single GIF from multiple input videos
 
     Args:
         source_video (str): Path to source video to create clips from
+        output_format (str): GIF or WEBP
         video_settings (list): List containing entries for each video with the following structure:
             {
                 'start_time': float,
@@ -212,20 +217,20 @@ def generate_sequence(source_video, video_settings, output_gif, output_mp4, capt
                 'font': str
                 'font_size': int
             }
-        output_gif (str): output path of the gif
+        output_path (str): output path of the video
         output_mp4 (str): output path of the mp4 version
         caption (str): caption to use
-        fps (int): Frames per second for the gif
+        fps (int): Frames per second
         crop (bool): Crop the video to a square (1:1 aspect ratio)
-        resolution (int): Output resolution of the gif
-        fancy_colors (bool): include all colors in gif, greatly increases gif size
+        resolution (int): Output resolution of the video
+        fancy_colors (bool, optional): include all colors in gif, greatly increases gif size
 
     Returns:
-        Tuple: (None, True) when gif creation was succesful or (str, False) when unsuccesful, the str value is the error message.
+        Tuple: (None, True) when video creation was succesful or (str, False) when unsuccesful, the str value is the error message.
     """
     with tempfile.TemporaryDirectory() as tmp:
         mp4_output = f'output/output.mp4'
-        gif_output = f'output/output.gif'
+        vid_output = f'output/output.{output_format}'
         clips = []
 
         for idx, video in enumerate(video_settings):
@@ -258,9 +263,10 @@ def generate_sequence(source_video, video_settings, output_gif, output_mp4, capt
         err, ok = concat_mp4(clips, mp4_output)
 
         if ok:
-            err, ok = mp4_to_gif(
+            err, ok = mp4_to_vid(
                 mp4=mp4_output,
-                output_gif=gif_output,
+                format=output_format,
+                output_path=vid_output,
                 caption=caption,
                 fps=fps,
                 crop=crop,
@@ -270,139 +276,64 @@ def generate_sequence(source_video, video_settings, output_gif, output_mp4, capt
         else: return err, False
     return None, True
 
-
-def generate_mp4(start_time, end_time, output_clip, output_mp4, custom_text, caption, video_path, fps, crop, resolution, font, font_size):
-    """
-    Generates an MP4 video clip from a source video with optional cropping, text overlay, and captioning.
-
-    Args:
-        start_time (float): The start time of the clip in seconds.
-        end_time (float): The end time of the clip in seconds.
-        output_clip (str): Path to the temporary clipped video file.
-        output_mp4 (str): Path to the final output MP4 file.
-        custom_text (str): Optional text to overlay on the video.
-        caption (str): Optional caption to be added at the bottom of the video.
-        video_path (str): Path to the source video file.
-        fps (int): Frames per second for the output video.
-        crop (bool): Whether to crop the video to a square aspect ratio.
-        resolution (int): Output video width (height is automatically adjusted to maintain aspect ratio).
-        font (str): Path to the font file for text overlay.
-        font_size (int): Font size for text overlay.
-
-    Returns:
-        Tuple(str, bool): If successful, returns (None, True). If an error occurs, returns (error message, False).
-    """
-    if start_time >= end_time:
-        return f'Start time cannot be past end time', False
-    duration = end_time-start_time
-
-    err, ok = _run_ffmpeg(video_path, output_clip, start_time=start_time, duration=duration)
-    if not ok:
-        return err, False
-
-    vf_filters = [f'fps={fps}']
-
-    if crop:
-        vf_filters.append("crop=in_h:in_h")
-
-    vf_filters.append(f'scale={resolution}:-1:flags=lanczos')
-
-    with tempfile.TemporaryDirectory() as tmp:
-        # Caption text
-        if caption:
-            # Add black bars to the top of the gif for the caption
-            padding = (2 + caption.count("\\N")) * font_size
-            vf_filters.append(
-                f"pad=iw:(ih+{padding}):0:{padding}"
-            )
-
-            add_text(tmp, vf_filters, caption, font, font_size, padding, is_caption=True)
-
-        # Subtitle text
-        if custom_text:
-            add_text(tmp, vf_filters, custom_text, font, font_size, is_caption=False)
-
-        vf = ','.join(vf_filters)
-
-        err, ok = _run_ffmpeg(output_clip, output_mp4, filters=vf)
-        if not ok:
-            return err, False
-    return None, True
-
-
+# Abstractions
 def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, caption, video_path, fps, crop, boomerang, resolution, font, font_size, fancy_colors, mp4_copy=False, output_mp4=""):
-    """Generate a GIF from a video file using FFmpeg
+    return generate_video(start_time, end_time, output_clip, output_gif, custom_text, caption, video_path, fps, crop, boomerang, resolution, font, font_size, fancy_colors, "gif", mp4_copy, output_mp4)
+def generate_webp(start_time, end_time, output_clip, output_webp, custom_text, caption, video_path, fps, crop, boomerang, resolution, font, font_size, mp4_copy=False, output_mp4=""):
+    return generate_video(start_time, end_time, output_clip, output_webp, custom_text, caption, video_path, fps, crop, boomerang, resolution, font, font_size, False, "webp", mp4_copy, output_mp4)
+def generate_mp4(start_time, end_time, output_clip, output_mp4, custom_text, caption, video_path, fps, crop, resolution, font, font_size):
+    return generate_video(start_time, end_time, output_clip, output_mp4, custom_text, caption, video_path, fps, crop, False, resolution, font, font_size)
+
+def generate_video(start_time, end_time, output_clip, output_path, custom_text, caption, input_path, fps, crop, boomerang, resolution, font, font_size, fancy_colors=False, format_type="webp", mp4_copy=False, output_mp4=""):
+    """Generate an animation (GIF, WEBP, or MP4) from a video file using FFmpeg.
 
     Args:
-        start_time (float): Start time, in seconds
-        end_time (float): End time, in seconds
-        output_clip (str): Output path of the clip
-        output_gif (str): Output path of the gif
-        custom_text (str): Subtitle text to embed in the gif
-        caption (str): Caption text to embed in the gif
-        video_path (str): Path to the input video
-        fps (int): Frames per second to use
-        crop (bool): Crop the video to a square (1:1 aspect ratio)
-        boomerang (bool): "Boomerang" the gif; the reverse of the original gif is appended to the end
-        resolution (int): Output resolution of the gif
-        font (str): Path to the font to use
-        font_size (int): Size of the font
-        fancy_colors (bool): include all colors in gif, greatly increases gif size
-        mp4_copy (bool, optional): Creates a copy MP4 with the subtitle/caption hardcoded. MP4's have far better compression than GIFs
-        output_mp4 (str, optional): Output path of the mp4
+        start_time (float): Start time in seconds.
+        end_time (float): End time in seconds.
+        output_clip (str): Output path of the clip.
+        output_path (str): Output path of the animation (gif/webp).
+        custom_text (str): Subtitle text to embed.
+        caption (str): Caption text to embed.
+        input_path (str): Path to the input video.
+        fps (int): Frames per second.
+        crop (bool): Crop the video to a square.
+        boomerang (bool): Reverse the animation and append to the end.
+        resolution (int): Output resolution.
+        font (str): Path to the font.
+        font_size (int): Font size.
+        fancy_colors (bool): Include full colors (applies to GIFs, increases file size).
+        format_type (str): Animation format - "gif" or "webp".
+        mp4_copy (bool, optional): Create an MP4 copy with embedded text.
+        output_mp4 (str, optional): Output path of the MP4 file.
 
     Returns:
-        Tuple: (None, True) when gif creation was succesful or (str, False) when unsuccesful, the str value is the error message.
+        Tuple: (None, True) when successful, (error_message, False) when unsuccessful.
     """
     if start_time >= end_time:
         return f'duration must be at least 1 second', False
 
     duration = end_time - start_time
-
-    err, ok = _run_ffmpeg(video_path, output_clip, start_time=start_time, duration=duration)
+    err, ok = _run_ffmpeg(input_path, output_clip, start_time=start_time, duration=duration)
     if not ok:
         return err, False
 
-    vf_filters = []
-
-    if boomerang:
-        vf_filters.append("[0]reverse[r];[0][r]concat=n=2:v=1:a=0")
-
-    # FPS
-    vf_filters.append(f"fps={fps}")
-
-    # Crop
-    if crop:
-        vf_filters.append('crop=in_h:in_h')
-
-    # Scale
-    vf_filters.append(f"scale={resolution}:-1:flags=lanczos")
-
     with tempfile.TemporaryDirectory() as tmp:
-        # Caption text
+        vf_filters = []
+        vf_caption = vf_text = None
+        # Add text overlays
         if caption:
-            # Add black bars to the top of the gif for the caption
             padding = (2 + caption.count("\\N")) * font_size
-            vf_filters.append(
-                f"pad=iw:(ih+{padding}):0:{padding}"
-            )
+            vf_filters.append(f"pad=iw:(ih+{padding}):0:{padding}")
+            vf_caption = text_filters(tmp, caption, font, font_size, padding, is_caption=True)
 
-            add_text(tmp, vf_filters, caption, font, font_size, padding, is_caption=True)
-
-        # Subtitle text
         if custom_text:
-            add_text(tmp, vf_filters, custom_text, font, font_size, is_caption=False)
+            vf_text = text_filters(tmp, custom_text, font, font_size, is_caption=False)
 
-        # Palette
-        if fancy_colors:
-            vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
-        else:
-            vf_filters.append("split[s0][s1];[s0]palettegen=max_colors=32[p];[s1][p]paletteuse=dither=bayer")
+        vf_filters += build_ffmpeg_filters(fps, crop, resolution, boomerang, fancy_colors, format_type, vf_caption=vf_caption, vf_text=vf_text)
 
-        # Join filters
         vf = ",".join(vf_filters)
 
-        err, ok = _run_ffmpeg(output_clip, output_gif, filters=vf)
+        err, ok = _run_ffmpeg(output_clip, output_path, filters=vf)
         if not ok:
             return err, False
 
@@ -410,4 +341,45 @@ def generate_gif(start_time, end_time, output_clip, output_gif, custom_text, cap
             err, ok = _run_ffmpeg(output_clip, output_mp4, filters=','.join(vf_filters[:-1]))  # Remove palette filter for MP4
             if not ok:
                 return err, False
+
     return None, True
+
+def build_ffmpeg_filters(fps, crop, resolution, boomerang, fancy_colors, format_type, vf_caption=None, vf_text=None):
+    """Returns array of ffmpeg filters
+
+    Args:
+        fps (int): Frames per second
+        crop (bool): Crop to square
+        resolution (int): Output resolution
+        boomerang (bool): Append the reverse of the clip
+        fancy_colors (bool): Include full colors (applies to GIFs, increases file size).
+        format_type (str): Animation format - "gif" or "webp".
+        vf_caption (list): List containing filters for the caption text
+        vf_text (list): List containing filters for the subtitle text
+    """
+    vf_filters = []
+
+    if boomerang:
+        vf_filters.append("[0]reverse[r];[0][r]concat=n=2:v=1:a=0")
+
+    vf_filters.append(f'fps={fps}')
+
+    if crop:
+        vf_filters.append('crop=in_h:in_h')
+
+    vf_filters.append(f'scale={resolution}:-1:flags=lanczos')
+
+    if vf_caption:
+        vf_filters += vf_caption
+
+    if vf_text:
+        vf_filters += vf_text
+
+    if format_type == 'gif':
+        # Palette
+        if fancy_colors:
+            vf_filters.append("split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
+        else:
+            vf_filters.append("split[s0][s1];[s0]palettegen=max_colors=32[p];[s1][p]paletteuse=dither=bayer")
+
+    return vf_filters
