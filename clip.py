@@ -331,6 +331,9 @@ class Sub2Clip(QMainWindow):
                 continue
 
             for subItem in self.subtitle_list_items:
+                if subItem.source_video != video:
+                    continue
+
                 sub_norm = self.normalize_string(subItem.sub_text).lower()
                 if query_norm in sub_norm:
                     widget = SubtitleListItem(
