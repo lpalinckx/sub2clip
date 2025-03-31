@@ -265,7 +265,7 @@ def generate_sequence(source_video, output_format, video_settings, output_path, 
         if ok:
             err, ok = mp4_to_vid(
                 mp4=mp4_output,
-                format=output_format,
+                output_format=output_format,
                 output_path=vid_output,
                 caption=caption,
                 fps=fps,
