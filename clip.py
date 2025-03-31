@@ -388,12 +388,12 @@ class Sub2Clip(QMainWindow):
 
             video_settings = [
                 {
-                    'start_time': sub.start_s,
-                    'end_time': sub.end_s,
+                    'start_time': sub.start_s if (idx != 0) else self.start_time.value(),
+                    'end_time': sub.end_s if (idx != len(items)-1) else self.end_time.value(),
                     'custom_text': sub.sub_text,
                     'font': self.selected_font_path,
                     'font_size': self.font_size.value()
-                } for sub in items
+                } for idx, sub in enumerate(items)
             ]
 
             output_vid = f'output/output.{self.select_format.currentText()}'
