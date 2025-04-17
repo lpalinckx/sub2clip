@@ -49,7 +49,7 @@ def extract_subs(video_path):
         else:
             return f'could not extract subtitles from video {video_path}', False
 
-def text_filters(tmp, text, font, font_size, padding=0, is_caption=False):
+def text_filters(tmp, text, font, font_size, is_caption=False):
     """Returns the drawtext filters with the corresponding text and font settings
 
     Args:
@@ -57,9 +57,10 @@ def text_filters(tmp, text, font, font_size, padding=0, is_caption=False):
         text (str): Text string to add, can contain multiple lines
         font (str): Path to the font to be used
         font_size (int): Font size used
-        padding (int, optional): Padding used in the caption. Defaults to 0.
         is_caption (bool, optional): Determines whether to put the text in the caption area or as subtitles. Defaults to False.
     """
+    vf = []
+
     def ffmpeg_friendly_path(path):
         return path.replace('\\', '/').replace(':', r'\:')
 
@@ -69,10 +70,14 @@ def text_filters(tmp, text, font, font_size, padding=0, is_caption=False):
     # Lines are stored in reverse order, make sure they are in order for the caption text
     lines = list(reversed(lines)) if is_caption else lines
 
+    # Calculate padding
+    padding = (2 + text.count("\\N")) * font_size if is_caption else 0
+    if is_caption:
+        vf.append(f"pad=iw:(ih+{padding}):0:{padding}")
+
     # Calculate offset for caption
     text_height    = len(lines) * font_size
     padding_offset = (padding - text_height)/2
-    vf = []
 
     for i, line in enumerate(lines, start=1):
         filename = f"caption-{i}.txt" if is_caption else f"subtitle-{i}.txt"
@@ -322,9 +327,7 @@ def generate_video(start_time, end_time, output_clip, output_path, custom_text, 
         vf_caption = vf_text = None
         # Add text overlays
         if caption:
-            padding = (2 + caption.count("\\N")) * font_size
-            vf_filters.append(f"pad=iw:(ih+{padding}):0:{padding}")
-            vf_caption = text_filters(tmp, caption, font, font_size, padding, is_caption=True)
+            vf_caption = text_filters(tmp, caption, font, font_size, is_caption=True)
 
         if custom_text:
             vf_text = text_filters(tmp, custom_text, font, font_size, is_caption=False)
