@@ -13,6 +13,7 @@ import platform
 import unicodedata
 from subs.subs import (extract_subs, generate_video, generate_sequence)
 import argparse
+from rangeslider import RangeSlider
 
 from loguru import logger
 logger.remove()
@@ -84,22 +85,51 @@ class Sub2Clip(QMainWindow):
         self.main_layout.addWidget(self.subtitle_results)
 
         # Clip Selection
+        timing_layout = QVBoxLayout()
+        
+        # Range Slider
+        self.time_slider = RangeSlider()
+        self.time_slider.setRange(0, 1000)
+        self.time_slider.rangeChanged.connect(self.on_slider_range_change)
+        
+        # Time labels
+        time_labels_layout = QHBoxLayout()
+        self.start_time_label = QLabel("Start: 0.00s")
+        self.end_time_label = QLabel("End: 0.00s")
+        time_labels_layout.addWidget(self.start_time_label)
+        time_labels_layout.addStretch()
+        time_labels_layout.addWidget(self.end_time_label)
+        
+        # Time inputs
+        time_inputs_layout = QHBoxLayout()
         self.start_time = QDoubleSpinBox()
         self.start_time.setPrefix("Start: ")
         self.start_time.setSuffix(" s")
         self.start_time.setMaximum(9999)
-        self.start_time.setSingleStep(1)
+        self.start_time.setSingleStep(0.1)
         self.start_time.setDecimals(2)
+        self.start_time.valueChanged.connect(self.on_start_time_change)
+        
         self.end_time = QDoubleSpinBox()
         self.end_time.setPrefix("End: ")
         self.end_time.setSuffix(" s")
         self.end_time.setDecimals(2)
-        self.end_time.setSingleStep(1)
+        self.end_time.setSingleStep(0.1)
         self.end_time.setMaximum(9999)
-        clip_layout = QHBoxLayout()
-        clip_layout.addWidget(self.start_time)
-        clip_layout.addWidget(self.end_time)
-        self.main_layout.addLayout(clip_layout)
+        self.end_time.valueChanged.connect(self.on_end_time_change)
+        
+        # Reset button
+        self.reset_button = QPushButton("Reset timestamps")
+        self.reset_button.setEnabled(False)
+        self.reset_button.clicked.connect(self.reset_timing)
+        time_inputs_layout.addWidget(self.start_time)
+        time_inputs_layout.addWidget(self.end_time)
+        time_inputs_layout.addWidget(self.reset_button)
+        
+        timing_layout.addLayout(time_labels_layout)
+        timing_layout.addWidget(self.time_slider)
+        timing_layout.addLayout(time_inputs_layout)
+        self.main_layout.addLayout(timing_layout)
 
         # Custom Text
         self.custom_text_input = QLineEdit()
@@ -208,6 +238,7 @@ class Sub2Clip(QMainWindow):
         self.subtitle_file = None
         self.subtitles = []
         self.subtitle_list_items = []
+        self.PADDING = 10 # Time in seconds to pad the original timing on each side for the slider
 
         if platform.system() == 'Windows':
             self.selected_font_path = Path("C:/Windows/Fonts/arial.ttf")
@@ -264,23 +295,60 @@ class Sub2Clip(QMainWindow):
 
 
     def load_video(self, video=None):
-        self.video_file, _ = (video, None) if video else QFileDialog.getOpenFileName(self, caption="Select Video", directory="", filter="Video Files (*.mp4 *.mkv)")
-        if self.video_file:
-            # Disable dropdown if FileDialog was used
-            if not video:
-                self.video_dropdown.setEnabled(False)
-                self.video_label.setText(f"Selected Video: {os.path.basename(self.video_file)}")
+        """Load a video file and update the time slider range"""
+        
+        # If video is None or False, open file dialog
+        if video is None or video is False:
+            video_path, _ = QFileDialog.getOpenFileName(self, "Select Video File", "", "Video Files (*.mp4 *.mkv)")
+            if not video_path:  # User cancelled the dialog
+                return
+            video = str(video_path)  # Ensure it's a string
+        
+        
+        if not isinstance(video, (str, bytes, os.PathLike)):
+            logger.error(f"Invalid video path type: {type(video)}, value: {video}")
+            self.status_label.setText("Invalid video path")
+            return
+            
+        # Convert to string if it's a PathLike object
+        video = str(video)
+        
+        # Check if file exists
+        if not os.path.exists(video):
+            logger.error(f"Video file not found: {video}")
+            self.status_label.setText("Video file not found")
+            return
+            
+        self.video_file = video
+        self.video_label.setText(f"Selected Video: {os.path.basename(video)}")
+        
+        # Disable dropdown if FileDialog was used
+        if video is None:
+            self.video_dropdown.setEnabled(False)
+        
+        # Extract subtitles
+        subs, success = extract_subs(self.video_file)
+        if success:
+            logger.success(f'Loaded subtitles for {self.video_file}')
+            self.subtitles = [(subs, self.video_file)]
+            self.status_label.setText("Subtitles loaded successfully!")
+            
+            # Set up time slider with 10 second range and padding
+            self.time_slider.setRange(0, 1000)  # 1000 steps for precision
+            self.time_slider.setValues(0, 1000)  # Set full range initially
+            
+            # Set initial times with padding
+            self.start_time.setValue(0)  # 1 second padding at start
+            self.end_time.setValue(0)    # 1 second padding at end
+            self.start_time_label.setText("")
+            self.end_time_label.setText("")
 
-            # Extract subtitles
-            subs, success = extract_subs(self.video_file)
-            if success:
-                logger.success(f'loaded subtitles for {self.video_file}')
-                self.subtitles = [(subs, self.video_file)]
-                self.status_label.setText("Subtitles loaded successfully!")
-                self.load_all_subs()
-            else:
-                logger.error(subs)
-                self.status_label.setText("No subtitles found.")
+            self.time_slider.setEnabled(False)
+            
+            self.load_all_subs()
+        else:
+            logger.error(f"Failed to extract subtitles: {subs}")
+            self.status_label.setText("No subtitles found.")
 
     def format_changed(self):
         if self.select_format.currentText() == 'gif':
@@ -365,14 +433,49 @@ class Sub2Clip(QMainWindow):
 
     def select_search_result(self, item):
         if isinstance(item, SubtitleListItem):
+            self.time_slider.setEnabled(True)
+
             selected_items = self.subtitle_results.selectedItems()
             selected_items.sort(key=lambda i: i.start_ms)
 
             self.video_file = item.source_video
-            self.start_time.setValue(float(selected_items[0].start_s))
-            self.end_time.setValue(float(selected_items[-1].end_s))
+            
+            # Store original subtitle times
+            self.original_start = float(selected_items[0].start_s)
+            self.original_end = float(selected_items[-1].end_s)
+            
+            # Set initial times to original subtitle times
+            self.start_time.setValue(self.original_start)
+            self.end_time.setValue(self.original_end)
+            
+            # Update slider range based on original times
+            self.time_slider.setRange(0, 1000)  # 1000 steps for precision
+            
+            # Calculate slider positions for original timing
+            start_pos = self._time_to_slider(self.original_start)
+            end_pos = self._time_to_slider(self.original_end)
+            
+            # Set initial slider positions
+            self.time_slider.setValues(start_pos, end_pos)
+            
+            # Set original timing indicators
+            self.time_slider.setOriginalTimes(start_pos, end_pos)
+            
+            # Update labels
+            self.start_time_label.setText(f"Start: {self.original_start:.2f}s")
+            self.end_time_label.setText(f"End: {self.original_end:.2f}s")
+            
             self.custom_text_input.setText(item.sub_text)
+            
+            # Enable reset button
+            self.reset_button.setEnabled(True)
 
+    def reset_timing(self):
+        """Reset the timing to the original subtitle times"""
+        if hasattr(self, 'original_start') and hasattr(self, 'original_end'):
+            self.start_time.setValue(self.original_start)
+            self.end_time.setValue(self.original_end)
+            self.time_slider.resetToOriginal()
 
     def generate(self):
         if not os.path.exists('output/'):
@@ -489,6 +592,67 @@ class Sub2Clip(QMainWindow):
 
     def close(self):
         logger.success("closing...")
+
+    def _slider_to_time(self, slider_value):
+        step = 1000 / (self.original_end - self.original_start + 2 * self.PADDING)
+        slider_zero = self.original_start - self.PADDING
+        return (slider_value / step) + slider_zero
+    
+    def _time_to_slider(self, time):
+        step = 1000 / (self.original_end - self.original_start + 2 * self.PADDING)
+        slider_zero = self.original_start - self.PADDING
+        return (time - slider_zero) * step
+
+    def on_slider_range_change(self, start, end):
+        """Update time labels and spinboxes when slider range changes"""
+        if not hasattr(self, 'original_start') or not hasattr(self, 'original_end'):
+            self.status_label.setText("Please select a subtitle first")
+            return
+            
+        # Convert slider values to actual times
+        start_time = self._slider_to_time(start)
+        end_time = self._slider_to_time(end)
+
+        # Ensure times don't go negative
+        start_time = max(0, start_time)
+        end_time = max(0, end_time)
+        
+        self.start_time.setValue(start_time)
+        self.start_time_label.setText(f"Start: {start_time:.2f}s")
+        self.end_time.setValue(end_time)
+        self.end_time_label.setText(f"End: {end_time:.2f}s")
+
+    def on_start_time_change(self, value):
+        """Update slider and labels when start time changes"""
+        if not hasattr(self, 'original_start') or not hasattr(self, 'original_end'):
+            self.status_label.setText("Please select a subtitle first")
+            return
+            
+        # Convert time to slider value
+        slider_value = self._time_to_slider(value)
+
+        # Ensure slider value stays within bounds
+        slider_value = max(0, min(1000, slider_value))
+        
+        current_end = self.time_slider._end
+        self.time_slider.setValues(slider_value, current_end)
+        self.start_time_label.setText(f"Start: {value:.2f}s")
+
+    def on_end_time_change(self, value):
+        """Update slider and labels when end time changes"""
+        if not hasattr(self, 'original_start') or not hasattr(self, 'original_end'):
+            self.status_label.setText("Please select a subtitle first")
+            return
+            
+        # Convert time to slider value
+        slider_value = self._time_to_slider(value)
+        
+        # Ensure slider value stays within bounds
+        slider_value = max(0, min(1000, slider_value))
+        
+        current_start = self.time_slider._start
+        self.time_slider.setValues(current_start, slider_value)
+        self.end_time_label.setText(f"End: {value:.2f}s")
 
 # Run the app
 if __name__ == "__main__":
