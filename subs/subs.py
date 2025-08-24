@@ -45,7 +45,11 @@ def extract_subs(video_path):
             return f'could not extract subtitles from video {video_path}: {e}. FFmpeg command = {_return_ffmpeg_command(e)}', False
 
         if os.path.exists(output_path):
-            return pysubs2.load(output_path), True
+            subs = pysubs2.load(output_path)
+            for line in subs:
+                line.plaintext = line.plaintext
+
+            return subs, True
         else:
             return f'could not extract subtitles from video {video_path}', False
 
