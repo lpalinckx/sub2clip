@@ -38,7 +38,9 @@ def extract_subs(video_path):
                 .input(video_path)
                 .output(
                     output_path,
-                    map=["0:s:0"]
+                    map=["0:s:0"],
+                    an=None,
+                    vn=None
                 )
             ).execute()
         except FFmpegError as e:
