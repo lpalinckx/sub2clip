@@ -136,7 +136,7 @@ def _run_ffmpeg(input_path, output_path, filters=None, start_time=None, duration
     if filters:
         ffmpeg = ffmpeg.output(output_path, {'filter_complex': filters, 'loop': 0})
     else:
-        ffmpeg = ffmpeg.output(output_path, {'c:v': 'copy', 'c:a': 'copy'})
+        ffmpeg = ffmpeg.output(output_path, {'c:v': 'libx265', 'crf': 18, 'preset': 'fast'})
 
     try:
         ffmpeg.execute()
