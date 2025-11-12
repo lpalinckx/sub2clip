@@ -1,5 +1,6 @@
 import pysubs2
 import tempfile
+import json
 import os
 from ffmpeg import (FFmpeg, FFmpegError)
 
@@ -112,31 +113,57 @@ def text_filters(tmp, text, font, font_size, is_caption=False):
         )
     return vf
 
-def _run_ffmpeg(input_path, output_path, filters=None, start_time=None, duration=None):
-    """Runs FFmpeg command with optional filters, start_time and duration. Always overwrites the output_path
+def _ffmpeg_create_clip(input_path, output_path, start_time, duration):
+    """Runs FFmpeg command to create a clip. Will first try to do it without re-encoding the output, and check if there is a video stream in the output"""
+    def has_video_stream(path):
+        ffprobe = FFmpeg(executable="ffprobe").input(path, print_format="json", show_streams=None)
+
+        media = json.loads(ffprobe.execute())
+
+        return any(
+            stream.get("codec_type") == "video"
+            for stream in media.get("streams", [])
+        )
+
+    # First try to copy the stream
+    ffmpeg = (
+        FFmpeg().option('y')
+                .input(input_path)
+                .option('ss', value=start_time)
+                .option('t', value=duration)
+                .output(output_path, {'c': 'copy'})
+    )
+
+    try:
+        ffmpeg.execute()
+        if not has_video_stream(output_path):
+            # Re-encode
+            (
+                FFmpeg().option('y')
+                        .input(input_path)
+                        .option('ss', value=start_time)
+                        .option('t', value=duration)
+                        .output(output_path, {'c:v': 'libx265', 'crf': 18, 'preset': 'fast'})
+            ).execute()
+    except FFmpegError as e:
+        return f'FFmpeg error during clip creation: {e}. Command = {_return_ffmpeg_command(e)}', False
+    return None, True
+
+def _run_ffmpeg(input_path, output_path, filters=None):
+    """Runs FFmpeg command with optional filters. Always overwrites the output_path
 
     Args:
         input_path (str): Input video file path
         output_path (str): Output video file path
         filters (str, optional): FFmpeg filters. Defaults to None.
-        start_time (float, optional): Start time in seconds. Defaults to None.
-        duration (float, optional): Duration in seconds. Defaults to None.
 
     Returns:
         Tuple: (None, True) when FFmpeg command succeeded or (str, False) when unsuccessful, with the error msg in str
     """
     ffmpeg = FFmpeg().option('y').input(input_path)
 
-    if start_time:
-        ffmpeg = ffmpeg.option('ss', value=start_time)
-
-    if duration:
-        ffmpeg = ffmpeg.option('t', value=duration)
-
     if filters:
         ffmpeg = ffmpeg.output(output_path, {'filter_complex': filters, 'loop': 0})
-    else:
-        ffmpeg = ffmpeg.output(output_path, {'c:v': 'libx265', 'crf': 18, 'preset': 'fast'})
 
     try:
         ffmpeg.execute()
@@ -324,7 +351,7 @@ def generate_video(start_time, end_time, output_clip, output_path, custom_text, 
         return f'duration must be at least 1 second', False
 
     duration = end_time - start_time
-    err, ok = _run_ffmpeg(input_path, output_clip, start_time=start_time, duration=duration)
+    err, ok = _ffmpeg_create_clip(input_path, output_clip, start_time, duration)
     if not ok:
         return err, False
 
