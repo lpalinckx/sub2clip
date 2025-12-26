@@ -32,7 +32,7 @@ class TextStyle:
             "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,"
             "OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,"
             "ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,"
-            "Alignment,MarginL,MarginR,MarginV,Encoding\n"
+            "Alignment,MarginL,MarginR,MarginV,Encoding"
         )
 
 
