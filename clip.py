@@ -11,7 +11,9 @@ from pathlib import Path
 from matplotlib import font_manager
 import platform
 import unicodedata
-from subs.subs import (extract_subs, generate_video, generate_sequence)
+from subs.subs import (extract_subs, generate)
+from subs.generation import (TextStyle, ClipSettings, VideoFormat)
+from subs.subtitles import Subtitle
 import argparse
 from rangeslider import RangeSlider
 
@@ -168,7 +170,7 @@ class Sub2Clip(QMainWindow):
         self.resolution = QSpinBox()
         self.resolution.setPrefix("Resolution: ")
         self.resolution.setMaximum(1080)
-        self.resolution.setValue(320)
+        self.resolution.setValue(200)
 
         # Layout
         video_settings_layout = QHBoxLayout()
@@ -211,7 +213,7 @@ class Sub2Clip(QMainWindow):
 
         # Format dropdown
         self.select_format = QComboBox()
-        self.select_format.addItems(['gif', 'webp'])
+        self.select_format.addItems(['webp', 'gif'])
         self.select_format.currentTextChanged.connect(self.format_changed)
 
         self.generate_layout = QHBoxLayout()
@@ -486,6 +488,10 @@ class Sub2Clip(QMainWindow):
         items.sort(key=lambda i: i.start_ms)
 
         if len(items) > 1:
+
+            logger.warning("disabled")
+            return
+
             if any(curr.sub_id != prev.sub_id + 1 for prev, curr in zip(items, items[1:])):
                 s = 'Illegal sequence of subtitles: Selected subtitles must be sequential'
                 self.status_label.setText(s)
@@ -552,25 +558,34 @@ class Sub2Clip(QMainWindow):
         if not os.path.exists('output/'):
             os.makedirs('output')
 
-        err, ok = generate_video(
-                start,
-                end,
-                output_clip,
-                output_vid,
-                custom_text,
-                caption,
-                self.video_file,
-                self.fps.value(),
-                self.square_checkbox.isChecked(),
-                self.boomerang_checkbox.isChecked(),
-                self.resolution.value(),
-                self.selected_font_path,
-                self.font_size.value(),
-                self.fancy_colors_checkbox.isChecked(),
-                self.select_format.currentText(),
-                self.mp4_copy_checkbox.isChecked(),
-                output_mp4
-            )
+        text_style = TextStyle(
+            font_size=self.font_size.value()
+        )
+
+
+        clip_settings = ClipSettings(
+            input_path=self.video_file,
+            clip_path=output_clip,
+            output_path=output_vid,
+            output_format=VideoFormat[self.select_format.currentText().upper()],
+            text_style=text_style,
+            resolution=self.resolution.value(),
+            start=start*1000,
+            end=end*1000,
+            fps=self.fps.value(),
+            crop=self.square_checkbox.isChecked(),
+            boomerang=self.boomerang_checkbox.isChecked(),
+            hd_gif=self.fancy_colors_checkbox.isChecked(),
+            mp4_copy=self.mp4_copy_checkbox.isChecked()
+        )
+
+        sub = Subtitle(
+            start=start*1000,
+            end=end*1000,
+            text=custom_text.split("\\N")
+        )
+
+        err, ok = generate(clip_settings, [sub], None)
 
         if ok:
             size_mb = os.path.getsize(output_vid) / (1024 * 1024)
