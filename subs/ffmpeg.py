@@ -91,7 +91,7 @@ def extract_subtitles(input: Path, output: Path, track: int) -> tuple[pysubs2.SS
 @timeit
 def create_clip(clip_settings: ClipSettings) -> tuple[str|None, bool]:
     def has_video_stream(path):
-        ffprobe = FFmpeg(executable="ffprobe").input(clip_settings.input_path, print_format="json", show_streams=None)
+        ffprobe = FFmpeg(executable="ffprobe").input(path, print_format="json", show_streams=None)
         media = json.loads(ffprobe.execute())
 
         return any(
