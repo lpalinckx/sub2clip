@@ -164,7 +164,7 @@ class Sub2Clip(QMainWindow):
         # Font size
         self.font_size = QSpinBox()
         self.font_size.setPrefix("Font size: ")
-        self.font_size.setValue(24)
+        self.font_size.setValue(18)
 
         # Set resolution
         self.resolution = QSpinBox()
@@ -558,17 +558,16 @@ class Sub2Clip(QMainWindow):
         if not os.path.exists('output/'):
             os.makedirs('output')
 
-        text_style = TextStyle(
+        subtitle_style = TextStyle(
             font_size=self.font_size.value()
         )
-
 
         clip_settings = ClipSettings(
             input_path=self.video_file,
             clip_path=output_clip,
             output_path=output_vid,
             output_format=VideoFormat[self.select_format.currentText().upper()],
-            text_style=text_style,
+            subtitle_style=subtitle_style,
             resolution=self.resolution.value(),
             start=start*1000,
             end=end*1000,
@@ -585,7 +584,16 @@ class Sub2Clip(QMainWindow):
             text=custom_text.split("\\N")
         )
 
-        err, ok = generate(clip_settings, [sub], None)
+        cap = None
+        if caption:
+            cap = Subtitle(
+                start=start*1000,
+                end=end*1000,
+                text=caption.split("\\N")
+            )
+
+
+        err, ok = generate(clip_settings, [sub], cap)
 
         if ok:
             size_mb = os.path.getsize(output_vid) / (1024 * 1024)

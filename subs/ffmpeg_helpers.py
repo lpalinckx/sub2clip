@@ -48,6 +48,41 @@ def _return_ffmpeg_command(ffmpeg):
     return ' '.join(args)
 
 @timeit
+def generate_caption_png(size: str, vf, png_out: Path) -> tuple[None|str, bool]:
+    try:
+        (
+            FFmpeg()
+            .option("y")
+            .option("f", value="lavfi")
+            .option("i", value=f"color=0xFF00FF:size={size}:duration=1")
+            .option("vf", value=vf)
+            .option("frames:v", value="1")
+            .output(png_out)
+        ).execute()
+    except FFmpegError as e:
+        return f'FFmpeg error during caption generation: {e}. Command = {_return_ffmpeg_command(e)}', False
+    return None, True
+
+@timeit
+def get_dimensions(path: Path) -> tuple[tuple[int,int]|str, bool]:
+    try:
+        ffmpeg = (
+            FFmpeg(executable="ffprobe")
+            .input(path)
+            .option('select_streams', value='v:0')
+            .option('show_entries', value='stream=width,height')
+            .option('of', value="csv=p=0")
+        )
+        res = ffmpeg.execute().decode().strip()
+        w, h = map(int, res.split(','))
+
+        return (w, h), True
+    except FFmpegError as e:
+        return f'FFmpeg error during ffprobe: {e}. Command = {_return_ffmpeg_command(e)}', False
+
+
+
+@timeit
 def run_ffmpeg(input: Path, output: Path, filters=None) -> tuple[None|str, bool]:
     ffmpeg = FFmpeg().option('y').input(input)
 
@@ -55,7 +90,6 @@ def run_ffmpeg(input: Path, output: Path, filters=None) -> tuple[None|str, bool]
         ffmpeg = ffmpeg.output(output, {'filter_complex': filters, 'loop': 0})
 
     try:
-        print(_return_ffmpeg_command(ffmpeg))
         ffmpeg.execute()
     except FFmpegError as e:
         return f'FFmpeg error: {e}. command = {_return_ffmpeg_command(e)}', False
