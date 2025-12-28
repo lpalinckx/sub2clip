@@ -533,7 +533,8 @@ class Sub2Clip(QMainWindow):
             ]
 
             cap = None
-            if self.caption_text_input.text().strip():
+            caption = self.caption_text_input.text().strip()
+            if caption:
                 cap = Subtitle(
                     start=start*1000,
                     end=end*1000,
@@ -617,7 +618,7 @@ class Sub2Clip(QMainWindow):
             size_mb = os.path.getsize(output_vid) / (1024 * 1024)
             size_mb = f"{size_mb:.2f}"
             self.status_label.setText(f"{output_vid} generated, size={size_mb}MB")
-            self.preview_vid(output_vid)
+            self.preview_vid(output_vid.as_posix())
             logger.success(f'{output_vid} generated, size={size_mb}MB')
             if self.mp4_copy_checkbox.isChecked():
                 size_mb_mp4 = os.path.getsize(output_mp4) / (1024 * 1024)
