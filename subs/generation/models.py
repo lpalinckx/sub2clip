@@ -265,7 +265,7 @@ class ClipSettings:
 
 
         ass = self._generate_ass(subtitles, caption, padding)
-        ass_file = Path(tmp_dir) / 'sub.ass' # TODO find out why this file is lost
+        ass_file = Path(tmp_dir) / 'sub.ass'
         ass_file.write_text(ass, encoding='utf-8')
 
         vf_filters.append(f"subtitles={ass_file.resolve()}")
