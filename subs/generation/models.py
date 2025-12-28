@@ -188,7 +188,7 @@ class ClipSettings:
     def end_s(self) -> float:
         return self.end / 1000.0
 
-    def _subtitles_to_ass(self, subs: list[Subtitle], clip_start: int, clip_duration: int, style: TextStyle) -> str:
+    def _subtitles_to_ass(self, subs: list[Subtitle], clip_start: int, style: TextStyle) -> str:
         def ms_to_ass_timing(ms: int) -> str:
             cs = int(round(ms / 10)) # centiseconds
 
@@ -217,7 +217,7 @@ class ClipSettings:
 
         return "\n".join(lines)
 
-    def _generate_ass(self, subs: list[Subtitle], caption: Subtitle = None, padding: int = 0) -> str:
+    def _generate_ass(self, subs: list[Subtitle], caption: Subtitle | list[Subtitle] = None, padding: int = 0) -> str:
         event_header = (
             "[Events]\n"
             "Format: Layer,Start,End,Style,Name,"
@@ -225,9 +225,14 @@ class ClipSettings:
         )
 
         sub_style = self.subtitle_style.build_ass_style() if subs else ""
-        sub_str   = self._subtitles_to_ass(subs, self.start, self.duration, self.subtitle_style) if subs else ""
-        caption_style = self.caption_style.build_ass_style() if caption else ""
-        caption_str   = self._subtitles_to_ass([caption], self.start, self.duration, self.caption_style) if caption else ""
+        sub_str = self._subtitles_to_ass(subs, self.start, self.subtitle_style) if subs else ""
+
+        caption_style = ""
+        caption_str = ""
+        if caption:
+            caption_list = caption if isinstance(caption, list) else [caption]
+            caption_style = self.caption_style.build_ass_style()
+            caption_str = self._subtitles_to_ass(caption_list, self.start, self.caption_style)
 
         return "\n".join([
             "[Script Info]",
@@ -250,6 +255,26 @@ class ClipSettings:
 
         if self.boomerang:
             vf_filters.append("[0]reverse[r];[0][r]concat=n=2:v=1:a=0")
+
+            # duplicate and time-shift subtitles so they appear in the reversed half
+            if subtitles:
+                rev_subs: list[Subtitle] = []
+                for sub in subtitles:
+                    rel_s = sub.start - self.start
+                    rel_e = sub.end - self.start
+                    rev_rel_s = 2 * self.duration - rel_e
+                    rev_rel_e = 2 * self.duration - rel_s
+                    rev_sub = Subtitle(start=self.start + rev_rel_s, end=self.start + rev_rel_e, text=sub.text, delay=sub.delay)
+                    rev_subs.append(rev_sub)
+
+                subtitles = subtitles + rev_subs
+
+            if caption:
+                caption = Subtitle(
+                    start=caption.start,
+                    end=caption.end*2,
+                    text=caption.text,
+                    delay=caption.delay)
 
         vf_filters.append(f'fps={self.fps}')
 
