@@ -245,7 +245,7 @@ class ClipSettings:
         ])
 
 
-    def build_clip_filters(self, subtitles: list[Subtitle] = None, caption: Subtitle = None) -> list[str]:
+    def build_clip_filters(self, tmp_dir: TemporaryDirectory, subtitles: list[Subtitle] = None, caption: Subtitle = None) -> list[str]:
         vf_filters = []
 
         if self.boomerang:
@@ -264,12 +264,11 @@ class ClipSettings:
             vf_filters.append(vf)
 
 
-        with TemporaryDirectory() as td:
-            ass = self._generate_ass(subtitles, caption, padding)
-            ass_file = Path(td) / 'sub.ass'
-            ass_file.write_text(ass, encoding='utf-8')
+        ass = self._generate_ass(subtitles, caption, padding)
+        ass_file = Path(tmp_dir) / 'sub.ass' # TODO find out why this file is lost
+        ass_file.write_text(ass, encoding='utf-8')
 
-            vf_filters.append(f"subtitles={ass_file.resolve()}")
+        vf_filters.append(f"subtitles={ass_file.resolve()}")
 
         if self.output_format == VideoFormat.GIF:
             # Palette
