@@ -7,15 +7,33 @@ from subs.subtitles import Subtitle
 from PIL import Image
 
 class VideoFormat(Enum):
+    """Supported formats to generate clips
+    """
     WEBP = 1
     GIF  = 2
     MP4  = 3
 
 @dataclass(frozen=True)
 class TextStyle:
-    """
-    Maps to ASS style of subtitles.
+    """Maps to ASS style of subtitles.
     See http://www.tcax.org/docs/ass-specs.htm for specification
+
+    All properties are optional in this class, the default values are suited for subtitles.
+
+    Properties:
+        name (str): Name of the style, used in ASS file
+        font (str): Name of the font, used in ASS file
+        font_size (int): Size of the font
+        font_color (str): Color to use for the font. Defaults to white
+        outline_width (int): Size of the outline for the font. Defaults to the font_size/20
+        outline_color (str): Color to use for the outline. Defaults to black
+        bold (int): Whether to make the font bold or not (0 or 1)
+        italic (int): Whether to make the font italic or not (0 or 1)
+        shadow (int): Whether to add a show or not (0 or 1)
+        alignment (int): Position of the text string, see ASS specification for values. Defaults to bottom center (2).
+        margin_l (int): Left margin
+        margin_r (int): Right margin
+        margin_v (int): Vertical margin
     """
     name: str = "subtitle_style"
     font: str = "Arial"
@@ -104,6 +122,37 @@ class TextStyle:
 
 @dataclass
 class ClipSettings:
+    """Collection of settings to use during clip generation
+
+    Properties:
+        input_path (Path): source video to use
+        clip_path (Path): location where the mp4 clip will be stored
+        output_path (Path): location of the generated clip
+        output_format (VideoFormat): Format to use
+        start (int): Start time of the clip, in milliseconds
+        end (int): End time of the clip, in milliseconds
+        fps (int): Frames per second to use. Defaults to 20
+        width (int, optional): Output clip width, in pixels. Can only be set if height is also set.
+        height (int, optional): Output clip height, in pixels. Can only be set if width is also set.
+        resolution (int, optional): Output clip height, let FFmpeg automatically calculate width keeping aspect ratio
+        subtitle_style (TextStyle, optional): Style to use for the subtitles
+        caption_style (TextStyle, optional): Style to use for the caption
+        crop (bool, optional): Crop the clip to a square (e.g. 200x200). Default False.
+        boomerang (bool, optional): Append the reverse of the clip. Default False.
+        hd_gif (bool, optional): Use high quality colors for the GIF, increasing file size significantly. Default False.
+        mp4_copy (bool, optional): Generate a copy mp4 (with burnt-in caption/subtiles). Default False.
+        crf (int, optional): Constant Rate Factor, value used by FFmpeg for re-encoding. Default 18.
+        preset (str, optional): Re-encoding preset used by FFmpeg. Default 'fast'.
+
+    There are several checks that happen after creating a ClipSettings instance.
+    If there is an invalid state, a ValueError is thrown.
+    Raises:
+        ValueError: when start time is set past end time
+        ValueError: when resolution is set and either width or height is set
+        ValueError: when resolution is not set and either width or height is not set
+        ValueError: when the output path has the extension set to something else than the given VideoFormat
+        ValueError: when crop was set to true, but the given width and height don't match.
+    """
     input_path: Path
     clip_path: Path
     output_path: Path

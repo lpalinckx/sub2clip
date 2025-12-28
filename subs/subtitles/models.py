@@ -1,8 +1,15 @@
 from dataclasses import (dataclass, field)
 
-# Subtitle class
 @dataclass(frozen=True, order=True)
 class Subtitle:
+    """Class to represent a Subtitle. Immutable, and are comparable (by timestamp)
+
+    Properties:
+        start (int): start time of the subtitle in milliseconds
+        end (int): end time of the subtitle in milliseconds
+        text (list[str]): List of lines for this subtitle
+        delay (int): delay to add to the original start time, in milliseconds
+    """
     start: int # ms
     end: int   # ms
     text: list[str] = field(compare=False)
