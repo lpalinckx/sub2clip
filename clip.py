@@ -499,7 +499,6 @@ class Sub2Clip(QMainWindow):
             output_dir = Path("output/")
             output_clip = output_dir / "clip.mp4"
             output_vid = output_dir / f"output.{self.select_format.currentText()}"
-            output_mp4 = output_dir / "output.mp4"
 
             start = items[0].start_ms
             end   = items[-1].end_ms
@@ -536,8 +535,8 @@ class Sub2Clip(QMainWindow):
             caption = self.caption_text_input.text().strip()
             if caption:
                 cap = Subtitle(
-                    start=start*1000,
-                    end=end*1000,
+                    start=start,
+                    end=end,
                     text=caption.split("\\N")
                 )
 
