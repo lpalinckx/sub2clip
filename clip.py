@@ -489,9 +489,6 @@ class Sub2Clip(QMainWindow):
 
         if len(items) > 1:
 
-            logger.warning("disabled")
-            return
-
             if any(curr.sub_id != prev.sub_id + 1 for prev, curr in zip(items, items[1:])):
                 s = 'Illegal sequence of subtitles: Selected subtitles must be sequential'
                 self.status_label.setText(s)
@@ -499,37 +496,57 @@ class Sub2Clip(QMainWindow):
                 logger.error(s)
                 return
 
-            video_settings = [
-                {
-                    'start_time': sub.start_s if (idx != 0) else self.start_time.value(),
-                    'end_time': sub.end_s if (idx != len(items)-1) else self.end_time.value(),
-                    'custom_text': sub.sub_text,
-                    'font': self.selected_font_path,
-                    'font_size': self.font_size.value()
-                } for idx, sub in enumerate(items)
-            ]
+            output_dir = Path("output/")
+            output_clip = output_dir / "clip.mp4"
+            output_vid = output_dir / f"output.{self.select_format.currentText()}"
+            output_mp4 = output_dir / "output.mp4"
 
-            output_vid = f'output/output.{self.select_format.currentText()}'
-            output_mp4 = 'output/mp4_concat.mp4'
+            start = items[0].start_ms
+            end   = items[-1].end_ms
 
-            err, ok = generate_sequence(
-                source_video=self.video_file,
-                output_format=self.select_format.currentText(),
-                video_settings=video_settings,
+            subtitle_style = TextStyle(
+                font_size=self.font_size.value()
+            )
+
+            clip_settings = ClipSettings(
+                input_path=self.video_file,
+                clip_path=output_clip,
                 output_path=output_vid,
-                output_mp4=output_mp4,
-                caption=self.caption_text_input.text().strip(),
+                output_format=VideoFormat[self.select_format.currentText().upper()],
+                subtitle_style=subtitle_style,
+                resolution=self.resolution.value(),
+                start=start,
+                end=end,
                 fps=self.fps.value(),
                 crop=self.square_checkbox.isChecked(),
-                resolution=self.resolution.value(),
-                fancy_colors=self.fancy_colors_checkbox.isChecked()
+                boomerang=self.boomerang_checkbox.isChecked(),
+                hd_gif=self.fancy_colors_checkbox.isChecked(),
+                mp4_copy=self.mp4_copy_checkbox.isChecked()
             )
+
+            subs = [
+                Subtitle(
+                    start=sub.start_ms,
+                    end=sub.end_ms,
+                    text=sub.sub_text.split("\\N")
+                ) for idx, sub in enumerate(items)
+            ]
+
+            cap = None
+            if self.caption_text_input.text().strip():
+                cap = Subtitle(
+                    start=start*1000,
+                    end=end*1000,
+                    text=caption.split("\\N")
+                )
+
+            err, ok = generate(clip_settings, subs, cap)
 
             if ok:
                 size_mb = os.path.getsize(output_vid) / (1024 * 1024)
                 size_mb = f"{size_mb:.2f}"
                 self.status_label.setText(f"'{output_vid}' generated, size={size_mb}MB")
-                self.preview_vid(output_vid)
+                self.preview_vid(output_vid.as_posix())
                 logger.success(f'{output_vid} generated, size={size_mb}MB')
             else:
                 logger.error(err)
