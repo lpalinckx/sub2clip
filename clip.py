@@ -549,9 +549,10 @@ class Sub2Clip(QMainWindow):
             self.status_label.setText("Invalid start and end times.")
             return
 
-        output_clip = "output/clip.mp4"
-        output_vid = f"output/output.{self.select_format.currentText()}"
-        output_mp4 = "output/output.mp4"
+        output_dir = Path("output/")
+        output_clip = output_dir / "clip.mp4"
+        output_vid = output_dir / f"output.{self.select_format.currentText()}"
+        output_mp4 = output_dir / "output.mp4"
         custom_text = self.custom_text_input.text().strip()
         caption = self.caption_text_input.text().strip()
 

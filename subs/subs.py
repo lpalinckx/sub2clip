@@ -14,7 +14,7 @@ def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[SSAFile | s
             return res, False
         return res, True
 
-def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle) -> tuple[str|None, bool]:
+def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle = None) -> tuple[str|None, bool]:
 
     err, ok = create_clip(clip_settings)
     if not ok:

@@ -149,10 +149,9 @@ class ClipSettings:
                     self.width  = 2 * round((og_w*self.height / og_h) / 2)
 
         ## Check if the filetype set in the filename is the same as the output_format
-        parts = self.output_path.split('.')
-        if len(parts) > 1:
-            if VideoFormat[parts[1].upper()] != self.output_format:
-                raise ValueError(f"Output filename had set filetype as '{parts[1]}', but given output_format was {self.output_format}")
+        ftype = self.output_path.suffix[1::]
+        if VideoFormat[ftype.upper()] != self.output_format:
+            raise ValueError(f"Output filename had set filetype as '{parts[1]}', but given output_format was {self.output_format}")
 
         ## Check if self.crop is set and validate the width/height
         if self.crop and not res_set:
