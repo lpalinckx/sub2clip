@@ -27,6 +27,9 @@ class TextStyle:
     italic: int = 0 # 0 = regular, 1 = italics
     shadow: int = 0
     alignment: int = 2 # bottom center default
+    margin_l: int = 0
+    margin_r: int = 0
+    margin_v: int = 10
 
     def build_ass_style_header(self) -> str:
         return (
@@ -42,13 +45,12 @@ class TextStyle:
             f"Style: {self.name},{self.font},{self.font_size},{self.font_color},&H00000000,"
             f"{self.outline_color},&H00000000,{self.bold},{self.italic},0,0,"
             f"100,100,0,0,1,{self.outline_width},{self.shadow},"
-            f"{self.alignment},20,20,20,1"
+            f"{self.alignment},{self.margin_l},{self.margin_r},{self.margin_v},1"
         )
 
     def calculate_caption_padding(self, caption_text: str, width: int, height: int) -> str:
         with TemporaryDirectory() as td:
             td = Path(td)
-            # td = Path('output/')
             caption_ass = td / "caption.ass"
             png_out = td / "out.png"
 
@@ -63,7 +65,7 @@ class TextStyle:
                 "",
                 "[Events]",
                 "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text",
-                f"Dialogue: 0,0:00:00.00,0:00:05.00,{self.name},,0,0,0,,{caption_text}"
+                f"Dialogue: 0,0:00:00.00,0:00:05.00,{self.name},,{self.margin_l},{self.margin_r},{self.margin_v},,{caption_text}"
             )
             caption_ass.write_text("\n".join(ass_content), encoding="utf-8")
 
@@ -94,11 +96,11 @@ class TextStyle:
             if top is None:
                 return 0
             measured = bottom - top + 1
-            return measured + self.font_size
+            return measured + self.margin_v*2
 
-    def build_caption_filters(self, text: str, width: int, height: int) -> str:
+    def build_caption_filters(self, text: str, width: int, height: int) -> tuple[str, int]:
         padding = self.calculate_caption_padding(text, width, height)
-        return f"pad=iw:(ih+{padding}):0:{padding}"
+        return f"pad=iw:(ih+{padding}):0:{padding}", padding
 
 @dataclass
 class ClipSettings:
@@ -164,7 +166,10 @@ class ClipSettings:
             self.caption_style = TextStyle(
                 "caption_style",
                 font_size=self.subtitle_style.font_size,
-                alignment=7
+                alignment=7,
+                margin_l=15,
+                margin_r=0,
+                margin_v=10
             )
 
     @property
@@ -183,7 +188,7 @@ class ClipSettings:
     def end_s(self) -> float:
         return self.end / 1000.0
 
-    def _subtitles_to_ass(self, subs: list[Subtitle], clip_start: int, clip_duration: int, styleName: str) -> str:
+    def _subtitles_to_ass(self, subs: list[Subtitle], clip_start: int, clip_duration: int, style: TextStyle) -> str:
         def ms_to_ass_timing(ms: int) -> str:
             cs = int(round(ms / 10)) # centiseconds
 
@@ -206,13 +211,13 @@ class ClipSettings:
             text = "\\N".join(sub.text)
 
             lines.append(
-                f"Dialogue: 0,{start},{end},{styleName},,"
-                f"0,0,10,,{text}"
+                f"Dialogue: 0,{start},{end},{style.name},,"
+                f"{style.margin_l},{style.margin_r},{style.margin_v},,{text}"
             )
 
         return "\n".join(lines)
 
-    def _generate_ass(self, subs: list[Subtitle], caption: Subtitle = None) -> str:
+    def _generate_ass(self, subs: list[Subtitle], caption: Subtitle = None, padding: int = 0) -> str:
         event_header = (
             "[Events]\n"
             "Format: Layer,Start,End,Style,Name,"
@@ -220,15 +225,15 @@ class ClipSettings:
         )
 
         sub_style = self.subtitle_style.build_ass_style() if subs else ""
-        sub_str   = self._subtitles_to_ass(subs, self.start, self.duration, self.subtitle_style.name) if subs else ""
+        sub_str   = self._subtitles_to_ass(subs, self.start, self.duration, self.subtitle_style) if subs else ""
         caption_style = self.caption_style.build_ass_style() if caption else ""
-        caption_str   = self._subtitles_to_ass([caption], self.start, self.duration, self.caption_style.name) if caption else ""
+        caption_str   = self._subtitles_to_ass([caption], self.start, self.duration, self.caption_style) if caption else ""
 
         return "\n".join([
             "[Script Info]",
             "ScriptType: v4.00+",
             f"PlayResX: {self.width}",
-            f"PlayResY: {self.height}",
+            f"PlayResY: {self.height + padding}",
             "",
             self.subtitle_style.build_ass_style_header(),
             sub_style,
@@ -253,13 +258,15 @@ class ClipSettings:
 
         vf_filters.append(f'scale={self.width}:{self.height}:flags=lanczos')
 
+        padding = 0
         if caption:
-            vf_filters.append(self.caption_style.build_caption_filters("\\N".join(caption.text), self.width, self.height))
+            vf, padding = self.caption_style.build_caption_filters("\\N".join(caption.text), self.width, self.height)
+            vf_filters.append(vf)
 
 
-        with TemporaryDirectory() as tmp:
-            ass = self._generate_ass(subtitles, caption)
-            ass_file = Path('output/') / 'sub.ass'
+        with TemporaryDirectory() as td:
+            ass = self._generate_ass(subtitles, caption, padding)
+            ass_file = Path(td) / 'sub.ass'
             ass_file.write_text(ass, encoding='utf-8')
 
             vf_filters.append(f"subtitles={ass_file.resolve()}")
