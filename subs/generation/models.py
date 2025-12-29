@@ -25,7 +25,7 @@ class TextStyle:
         font (str): Name of the font, used in ASS file
         font_size (int): Size of the font
         font_color (str): Color to use for the font. Defaults to white
-        outline_width (int): Size of the outline for the font. Defaults to the font_size/20
+        outline_width (float): Size of the outline for the font. Defaults to the font_size/20
         outline_color (str): Color to use for the outline. Defaults to black
         bold (int): Whether to make the font bold or not (0 or 1)
         italic (int): Whether to make the font italic or not (0 or 1)
