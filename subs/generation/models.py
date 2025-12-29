@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import (dataclass, field)
 from pathlib import Path
 from enum import Enum
 from tempfile import TemporaryDirectory
@@ -39,7 +39,7 @@ class TextStyle:
     font: str = "Arial"
     font_size: int = 20
     font_color: str = "&H00FFFFFF"
-    outline_width: int = font_size/20
+    _outline_width: Optional[int] = field(default=None, repr=False)
     outline_color: str = "&H00000000"
     bold: int = 0 # 0 = regular, 1 = bold
     italic: int = 0 # 0 = regular, 1 = italics
@@ -48,6 +48,14 @@ class TextStyle:
     margin_l: int = 0
     margin_r: int = 0
     margin_v: int = 10
+
+    @property
+    def outline_width(self) -> int:
+        return (
+            self.font_size // 20
+            if self._outline_width is None
+            else self._outline_width
+        )
 
     def build_ass_style_header(self) -> str:
         return (
