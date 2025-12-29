@@ -114,8 +114,6 @@ def extract_subtitles(input: Path, output: Path, track: int) -> tuple[pysubs2.SS
 
     if Path(output).exists():
         subs = pysubs2.load(output)
-        for line in subs:
-            line.plaintext = line.plaintext
 
         return subs, True
     else:
