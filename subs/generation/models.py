@@ -39,7 +39,7 @@ class TextStyle:
     font: str = "Arial"
     font_size: int = 20
     font_color: str = "&H00FFFFFF"
-    _outline_width: Optional[int] = field(default=None, repr=False)
+    _outline_width: Optional[float] = field(default=None, repr=False)
     outline_color: str = "&H00000000"
     bold: int = 0 # 0 = regular, 1 = bold
     italic: int = 0 # 0 = regular, 1 = italics
@@ -50,9 +50,9 @@ class TextStyle:
     margin_v: int = 10
 
     @property
-    def outline_width(self) -> int:
+    def outline_width(self) -> float:
         return (
-            self.font_size // 20
+            self.font_size / 20
             if self._outline_width is None
             else self._outline_width
         )
