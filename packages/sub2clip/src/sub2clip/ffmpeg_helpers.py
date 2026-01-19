@@ -4,7 +4,7 @@ import functools
 import logging
 import pysubs2
 from ffmpeg import FFmpeg, FFmpegError
-from subs.generation import ClipSettings
+from sub2clip.generation import ClipSettings
 from pathlib import Path
 
 # module logger

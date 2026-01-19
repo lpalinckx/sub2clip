@@ -3,7 +3,7 @@ from pathlib import Path
 from enum import Enum
 from tempfile import TemporaryDirectory
 from typing import Optional
-from subs.subtitles import Subtitle
+from sub2clip.subtitles import Subtitle
 from PIL import Image
 
 class VideoFormat(Enum):
@@ -98,7 +98,7 @@ class TextStyle:
             size = f'{width}x{height}'
             vf = f'subtitles={caption_ass},format=rgba'
 
-            from subs.ffmpeg_helpers import generate_caption_png
+            from sub2clip.ffmpeg_helpers import generate_caption_png
             err, ok = generate_caption_png(size, vf, png_out)
 
             if not ok:
@@ -198,7 +198,7 @@ class ClipSettings:
             if self.crop:
                 self.height = self.width = self.resolution
             else:
-                from subs.ffmpeg_helpers import get_dimensions
+                from sub2clip.ffmpeg_helpers import get_dimensions
                 (og_w, og_h), ok = get_dimensions(self.input_path)
 
                 if ok:
@@ -208,7 +208,7 @@ class ClipSettings:
         ## Check if the filetype set in the filename is the same as the output_format
         ftype = self.output_path.suffix[1::]
         if VideoFormat[ftype.upper()] != self.output_format:
-            raise ValueError(f"Output filename had set filetype as '{parts[1]}', but given output_format was {self.output_format}")
+            raise ValueError(f"Output filename had set filetype as '{ftype}', but given output_format was {self.output_format}")
 
         ## Check if self.crop is set and validate the width/height
         if self.crop and not res_set:

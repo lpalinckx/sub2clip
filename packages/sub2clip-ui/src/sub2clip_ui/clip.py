@@ -1,7 +1,7 @@
 import sys
 import os
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QPushButton, QLabel,
+    QMainWindow, QVBoxLayout, QPushButton, QLabel,
     QFileDialog, QLineEdit, QHBoxLayout, QSpinBox, QWidget, QListWidget, QCheckBox,
     QDoubleSpinBox, QComboBox, QListWidgetItem, QAbstractItemView
 )
@@ -11,11 +11,10 @@ from pathlib import Path
 from matplotlib import font_manager
 import platform
 import unicodedata
-from subs.subs import (extract_subs, generate)
-from subs.generation import (TextStyle, ClipSettings, VideoFormat)
-from subs.subtitles import Subtitle
-import argparse
-from rangeslider import RangeSlider
+from sub2clip.sub2clip import (extract_subs, generate)
+from sub2clip.generation import (TextStyle, ClipSettings, VideoFormat)
+from sub2clip.subtitles import Subtitle
+from .rangeslider import RangeSlider
 
 from loguru import logger
 logger.remove()
@@ -696,22 +695,21 @@ class Sub2Clip(QMainWindow):
         self.time_slider.setValues(current_start, slider_value)
         self.end_time_label.setText(f"End: {value:.2f}s")
 
-# Run the app
-if __name__ == "__main__":
+def main():
+    import argparse
+    from PyQt5.QtWidgets import QApplication
     parser = argparse.ArgumentParser(
         prog = 'Sub2Clip'
     )
     parser.add_argument('--video', help="path to a video")
     parser.add_argument('--directory', help="path to a directory containing videos")
-    args = parser.parse_args()
-
-    directory_path = args.directory if args.directory else None
-    video_path     = args.video  if args.video  else None
+    args, _ = parser.parse_known_args()
 
     app = QApplication(sys.argv)
-    window = Sub2Clip(video=video_path, directory=directory_path)
+    window = Sub2Clip(video=args.video, directory=args.directory)
     window.show()
 
-    app.aboutToQuit.connect(window.close)
-
     sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    main()

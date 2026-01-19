@@ -1,19 +1,31 @@
 # Sub2Clip
 
-## Requirements
-[FFmpeg](https://ffmpeg.org/) installed on your system
-
 ## Usage
 
-### Prerequisites
-- FFmpeg must be installed and on your `PATH`.
-- Python deps installed via `pip install -r requirements.txt`.
+### Installation
+Two packages exist in this project:
+- sub2clip
+- sub2clip-ui
+
+`sub2clip-ui` is a GUI wrapper for the core package `sub2clip` created using PyQt5.
+
+To only install the core package with the clip generation logic:
+```bash
+pip install -e packages/sub2clip
+```
+
+To run the user interface:
+```bash
+pip install -e packages/sub2clip
+pip install -e packages/sub2clip-ui
+sub2clip
+```
 
 ### Extract subtitles from a video
 
 ```python
 from pathlib import Path
-from subs.subs import extract_subs
+from sub2clip.sub2clip import extract_subs
 
 video = Path('input.mkv')
 subs, ok = extract_subs(video)
@@ -29,9 +41,9 @@ for ev in subs:
 
 ```python
 from pathlib import Path
-from subs.subs import generate
-from subs.generation import ClipSettings, VideoFormat
-from subs.subtitles import Subtitle
+from sub2clip.sub2clip import generate
+from sub2clip.generation import ClipSettings, VideoFormat
+from sub2clip.subtitles import Subtitle
 
 video = Path('input.mp4')
 
@@ -56,14 +68,16 @@ if not ok:
 print('Generated:', clip_settings.output_path)
 ```
 
+A larger example can be found at `examples/example.py`.
+
 Notes:
 - Use `VideoFormat.MP4` for MP4 output and set suitable `output_path` file extension.
 - The library returns `(error_message, False)` on failure — `error_message` is a human-readable string.
 
 ## GUI Usage
-- `python clip.py` opens the GUI.
-- `python clip.py --video=/path/to/video` autoloads the given video.
-- `python clip.py --directory=/path/to/directory` autoloads the given directory.
+- `sub2clip` opens the GUI.
+- `sub2clip --video=/path/to/video` autoloads the given video.
+- `sub2clip --directory=/path/to/directory` autoloads the given directory.
 
 1. Load a video (or a directory of videos) that has a subtitle track
 2. Search for a specific phrase or click on one of the shown subtitles

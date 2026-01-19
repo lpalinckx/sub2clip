@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sub2clip-ui"
+version = "1.0.0"
+dependencies = [
+  "sub2clip>=2.0.0",
+  "PyQt5>=5.15",
+  "loguru>=0.7.3",
+  "matplotlib>=3.10.8"
+]
+
+[project.scripts]
+sub2clip = "sub2clip_ui.clip:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

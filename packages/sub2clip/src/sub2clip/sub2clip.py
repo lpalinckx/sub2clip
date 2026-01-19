@@ -1,8 +1,8 @@
 from pathlib import Path
 from pysubs2 import (SSAFile)
 from .ffmpeg_helpers import (run_ffmpeg, extract_subtitles, create_clip)
-from subs.subtitles import Subtitle
-from subs.generation import (ClipSettings)
+from sub2clip.subtitles import Subtitle
+from sub2clip.generation import (ClipSettings)
 from tempfile import TemporaryDirectory
 
 def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[SSAFile | str, bool]:
