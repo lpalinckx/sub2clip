@@ -16,7 +16,6 @@ pip install -e packages/sub2clip
 
 To run the user interface:
 ```bash
-pip install -e packages/sub2clip
 pip install -e packages/sub2clip-ui
 sub2clip
 ```
