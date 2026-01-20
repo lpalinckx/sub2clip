@@ -1,5 +1,4 @@
 from pathlib import Path
-from pysubs2 import (SSAFile)
 from .ffmpeg_helpers import (run_ffmpeg, extract_subtitles, create_clip)
 from sub2clip.subtitles import Subtitle
 from sub2clip.generation import (ClipSettings)
