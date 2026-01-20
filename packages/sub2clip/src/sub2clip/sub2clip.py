@@ -26,6 +26,10 @@ def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtit
             text=[line for line in ssa.text.split("\\N")]
         ) for ssa in res]
 
+        for i, sub in enumerate(subs):
+            sub.prv = subs[i-1] if i > 0 else None
+            sub.nxt = subs[i+1] if i < len(subs)-1 else None
+
         if not ok:
             return res, False
         return subs, True
