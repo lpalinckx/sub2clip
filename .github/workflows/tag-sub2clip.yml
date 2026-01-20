@@ -1,0 +1,52 @@
+name: Tag sub2clip
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/sub2clip/pyproject.toml"
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+        contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # required for tags
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(python - <<EOF
+          import tomllib
+          with open("packages/sub2clip/pyproject.toml", "rb") as f:
+              print(tomllib.load(f)["project"]["version"])
+          EOF
+          )
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: tagcheck
+        run: |
+          TAG="sub2clip-v${{ steps.version.outputs.version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create tag
+        if: steps.tagcheck.outputs.exists == 'false'
+        uses: actions/github-script@v8
+        with:
+            script: |
+                github.rest.git.createRef({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    ref: 'refs/tags/sub2clip-v${{ steps.version.outputs.version }}',
+                    sha: context.sha
+                })

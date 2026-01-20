@@ -1,4 +1,5 @@
 # Sub2Clip
+[![Tag sub2clip](https://github.com/lpalinckx/sub2clip/actions/workflows/tag-sub2clip.yml/badge.svg)](https://github.com/lpalinckx/sub2clip/actions/workflows/tag-sub2clip.yml)
 
 ## Usage
 
