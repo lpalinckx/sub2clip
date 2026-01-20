@@ -31,9 +31,9 @@ subs, ok = extract_subs(video)
 if not ok:
 	raise RuntimeError(subs)
 
-# `subs` is a pysubs2.SSAFile — you can inspect entries like:
-for ev in subs:
-	print(ev.start, ev.end, ev.plaintext)
+# `subs` is a list of Subtitles — you can inspect entries like:
+for sub in subs:
+	print(sub.start, sub.end, sub.text)
 ```
 
 ### Generate a GIF/WEBP/MP4 clip using `ClipSettings`

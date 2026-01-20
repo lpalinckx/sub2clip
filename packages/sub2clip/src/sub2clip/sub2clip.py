@@ -5,7 +5,7 @@ from sub2clip.subtitles import Subtitle
 from sub2clip.generation import (ClipSettings)
 from tempfile import TemporaryDirectory
 
-def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[SSAFile | str, bool]:
+def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtitle] | str, bool]:
     """Extracts the subtitles from the given Path. Subtitle track can be specified.
 
     Args:
@@ -13,17 +13,23 @@ def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[SSAFile | s
         subtitle_track (int, optional): Specific track to extract from the video, see FFmpeg for more details. Defaults to 0.
 
     Returns:
-        tuple[SSAFile | str, bool]:
-            - [SSAFile, True] when subtitle extraction succeeded.
+        tuple[list[Subtitle] | str, bool]:
+            - [list[Subtitle], True] when subtitle extraction succeeded.
             - [str, False] when subtitle extraction failed, str being the error message
     """
     with TemporaryDirectory() as tmp:
         output_path = Path(tmp) / 'subs.srt'
         res, ok = extract_subtitles(video_path, output_path, subtitle_track)
 
+        subs = [Subtitle(
+            start=ssa.start,
+            end=ssa.end,
+            text=[line for line in ssa.text.split("\\N")]
+        ) for ssa in res]
+
         if not ok:
             return res, False
-        return res, True
+        return subs, True
 
 def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle = None) -> tuple[str|None, bool]:
     """Generate a clip with the given clipsettings and subtitles. Caption is optional.
