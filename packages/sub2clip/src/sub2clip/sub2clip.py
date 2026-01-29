@@ -1,5 +1,5 @@
 from pathlib import Path
-from .ffmpeg_helpers import (run_ffmpeg, extract_subtitles, create_clip)
+from .ffmpeg_helpers import (run_ffmpeg, extract_subtitles, get_subtitle_lang_track, create_clip)
 from sub2clip.subtitles import Subtitle
 from sub2clip.generation import (ClipSettings)
 from tempfile import TemporaryDirectory
@@ -33,6 +33,31 @@ def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtit
         if not ok:
             return res, False
         return subs, True
+
+def extract_subs_by_language(video_path: Path, languages: list[str], include_cc: bool = False) -> tuple[list[Subtitle] | str, bool]:
+    """Extracts subtitles from the given Path based on the given languages.
+    Languages must be given as a ISO 639 language code.
+    If no subtitles are found matching any of the given languages, an error is thrown.
+
+    Args:
+        video_path (Path): Input video
+        languages (list[str]): List of languages, priotizes left to right. Must be ISO 639 language code.
+        include_cc (bool, optional): Whether to include subtitles marked as Closed Captions, Hearing Impaired or similar. Defaults to False.
+
+    Returns:
+        tuple[list[Subtitle] | str, bool]:
+            - [list[Subtitle], True] when subtitle extraction succeeded.
+            - [str, False] when subtitle extraction failed, str being the error message
+    """
+    idx, ok = get_subtitle_lang_track(video_path, languages)
+
+    if not ok:
+        return idx, False
+
+    subs, ok = extract_subs(video_path, idx)
+    if not ok:
+        return subs, False
+    return subs, True
 
 def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle = None) -> tuple[str|None, bool]:
     """Generate a clip with the given clipsettings and subtitles. Caption is optional.

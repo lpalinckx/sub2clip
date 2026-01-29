@@ -119,6 +119,41 @@ def extract_subtitles(input: Path, output: Path, track: int) -> tuple[pysubs2.SS
     else:
         return f'Could not extract subtitles from video {input} at sub track {track}', False
 
+@timeit
+def get_subtitle_lang_track(input: Path, langs: list[str], include_cc: bool = False) -> [str|int, bool]:
+    ffprobe = FFmpeg(executable="ffprobe").input(input, print_format="json", show_streams=None)
+    media = json.loads(ffprobe.execute())
+
+    sub_streams = [
+        stream for stream in media.get("streams", [])
+        if stream["codec_type"] == 'subtitle'
+    ]
+
+    non_sub_streams = [
+        stream for stream in media.get("streams", [])
+        if stream["codec_type"] != 'subtitle'
+    ]
+
+    if len(sub_streams) == 0:
+        return "No subtitle streams found for " + input.as_posix(), False
+
+    target_stream = None
+    for stream in sub_streams:
+        tags = stream.get('tags', {})
+        lang = tags.get("language", "")
+        title = tags.get("title", "").lower()
+
+        if lang in langs:
+            if include_cc:
+                target_stream = stream
+            elif not any(keyword in title for keyword in ['sdh', 'cc', 'hearing impaired']):
+                target_stream = stream
+                break
+
+    if not target_stream:
+        return "No subtitle stream exists for any of the requested languages: " + ','.join(langs), False
+
+    return int(target_stream.get('index'))-len(non_sub_streams), True
 
 @timeit
 def create_clip(clip_settings: ClipSettings) -> tuple[str|None, bool]:
