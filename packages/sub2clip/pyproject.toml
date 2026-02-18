@@ -1,7 +1,8 @@
 [project]
 name = "sub2clip"
-version = "2.3.0"
+version = "2.3.1"
 description = "Core logic for clip generation"
+requires-python = ">=3.10"
 dependencies = [
   "pysubs2>=1.8.0",
   "python-ffmpeg>=2.0.12",
