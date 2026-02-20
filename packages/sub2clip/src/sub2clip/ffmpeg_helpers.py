@@ -138,17 +138,21 @@ def get_subtitle_lang_track(input: Path, langs: list[str], include_cc: bool = Fa
         return "No subtitle streams found for " + input.as_posix(), False
 
     target_stream = None
-    for stream in sub_streams:
-        tags = stream.get('tags', {})
-        lang = tags.get("language", "")
-        title = tags.get("title", "").lower()
+    for lang in langs:
+        for stream in sub_streams:
+            tags = stream.get('tags', {})
+            sub_lang = tags.get('language', '')
+            title = tags.get('title', '').lower()
 
-        if lang in langs:
-            if include_cc:
-                target_stream = stream
-            elif not any(keyword in title for keyword in ['sdh', 'cc', 'hearing impaired']):
+            if lang != sub_lang:
+                continue
+
+            if include_cc or not any(k in title for k in ('sdh', 'cc', 'hearing impaired')):
                 target_stream = stream
                 break
+
+        if target_stream:
+            break
 
     if not target_stream:
         return "No subtitle stream exists for any of the requested languages: " + ','.join(langs), False
