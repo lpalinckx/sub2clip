@@ -98,6 +98,16 @@ def run_ffmpeg(input: Path, output: Path, filters=None) -> tuple[None|str, bool]
 
 @timeit
 def extract_subtitles(input: Path, output: Path, track: int) -> tuple[pysubs2.SSAFile | str, bool]:
+    ffprobe = FFmpeg(executable="ffprobe").input(input, print_format="json", show_streams=None)
+    media = json.loads(ffprobe.execute())
+    sub_streams = [
+        stream for stream in media.get("streams", [])
+        if stream["codec_type"] == 'subtitle'
+    ]
+
+    if len(sub_streams) == 0:
+        return "No subtitle streams found for " + input.as_posix(), False
+
     try:
         (
             FFmpeg()

@@ -20,18 +20,19 @@ def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtit
         output_path = Path(tmp) / 'subs.srt'
         res, ok = extract_subtitles(video_path, output_path, subtitle_track)
 
+        if not ok:
+            return res, False
+
         subs = [Subtitle(
             start=ssa.start,
             end=ssa.end,
-            text=[line for line in ssa.text.split("\\N")]
+            text=ssa.text.split("\\N")
         ) for ssa in res]
 
         for i, sub in enumerate(subs):
             sub.prv = subs[i-1] if i > 0 else None
             sub.nxt = subs[i+1] if i < len(subs)-1 else None
 
-        if not ok:
-            return res, False
         return subs, True
 
 def extract_subs_by_language(video_path: Path, languages: list[str], include_cc: bool = False) -> tuple[list[Subtitle] | str, bool]:
