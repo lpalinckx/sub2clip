@@ -182,6 +182,9 @@ class ClipSettings:
     preset: str = "fast"
 
     def __post_init__(self):
+        if not self.input_path.is_file():
+            raise ValueError(f"Input file does not exist: {self.input_path}")
+
         if self.start >= self.end:
             raise ValueError("Clip start time cannot be after end time")
 
