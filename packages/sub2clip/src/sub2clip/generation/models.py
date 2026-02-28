@@ -12,6 +12,7 @@ class VideoFormat(Enum):
     WEBP = 1
     GIF  = 2
     MP4  = 3
+    JPG  = 4
 
 @dataclass(frozen=True)
 class TextStyle:
@@ -185,7 +186,7 @@ class ClipSettings:
         if not self.input_path.is_file():
             raise ValueError(f"Input file does not exist: {self.input_path}")
 
-        if self.start >= self.end:
+        if self.start > self.end:
             raise ValueError("Clip start time cannot be after end time")
 
         width_set = self.width is not None

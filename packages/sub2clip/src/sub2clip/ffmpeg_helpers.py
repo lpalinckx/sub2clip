@@ -169,16 +169,18 @@ def get_subtitle_lang_track(input: Path, langs: list[str], include_cc: bool = Fa
 
     return int(target_stream.get('index'))-len(non_sub_streams), True
 
+def has_video_stream(path):
+    ffprobe = FFmpeg(executable="ffprobe").input(path, print_format="json", show_streams=None)
+    media = json.loads(ffprobe.execute())
+
+    return any(
+        stream.get("codec_type") == "video"
+        for stream in media.get("streams", [])
+    )
+    
+
 @timeit
 def create_clip(clip_settings: ClipSettings) -> tuple[str|None, bool]:
-    def has_video_stream(path):
-        ffprobe = FFmpeg(executable="ffprobe").input(path, print_format="json", show_streams=None)
-        media = json.loads(ffprobe.execute())
-
-        return any(
-            stream.get("codec_type") == "video"
-            for stream in media.get("streams", [])
-        )
 
     ffmpeg = (
         FFmpeg().option('y')
@@ -200,4 +202,27 @@ def create_clip(clip_settings: ClipSettings) -> tuple[str|None, bool]:
             ).execute()
     except FFmpegError as e:
         return f'FFmpegError during clip creation: {e}', False
+    return None, True
+
+@timeit
+def create_thumbnail(clip_settings: ClipSettings) -> tuple[str|None, bool]:
+    ffmpeg = (
+        FFmpeg().option('y')
+                .input(clip_settings.input_path)
+                .option('ss', value=clip_settings.start_s)
+                # .option('vframes', value=1)
+                .output(clip_settings.clip_path, vframes=1)
+    )
+
+    try:
+        ffmpeg.execute()
+        if not has_video_stream(clip_settings.clip_path):
+            (
+                FFmpeg().option('y')
+                        .input(clip_settings.input_path)
+                        .option('ss', value=clip_settings.start_s)
+                        .output(clip_settings.clip_path, { 'c:v': 'libx265', 'crf': clip_settings.crf, 'preset': clip_settings.preset }, vframes=1)
+            ).execute()
+    except FFmpegError as e:
+        return f'FFmpegError during thumbnail creation: {e}', False
     return None, True
