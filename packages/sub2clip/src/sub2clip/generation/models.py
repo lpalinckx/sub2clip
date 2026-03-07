@@ -268,7 +268,7 @@ class ClipSettings:
         for sub in sorted(subs):
             start = ms_to_ass_timing(sub.start + sub.delay - clip_start)
             end   = ms_to_ass_timing(sub.end - clip_start)
-            text = sub.text
+            text = sub.text.replace("\n", "\\N")
 
             lines.append(
                 f"Dialogue: 0,{start},{end},{style.name},,"
