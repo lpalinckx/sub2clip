@@ -248,7 +248,7 @@ class ClipSettings:
     
     @property
     def clip_path(self) -> Path:
-        return self.output_path.parent.joinpath(f"clip_{self.output_path.name}")
+        return self.output_path.parent.joinpath(f"{self.output_path.name}.mp4")
 
     def _subtitles_to_ass(self, subs: list[Subtitle], clip_start: int, style: TextStyle) -> str:
         def ms_to_ass_timing(ms: int) -> str:
