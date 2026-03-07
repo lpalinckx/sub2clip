@@ -4,7 +4,7 @@ from sub2clip.subtitles import Subtitle
 from sub2clip.generation import (ClipSettings)
 from tempfile import TemporaryDirectory
 
-def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtitle] | str, bool]:
+def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtitle], bool]:
     """Extracts the subtitles from the given Path. Subtitle track can be specified.
 
     Args:
@@ -35,7 +35,7 @@ def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtit
 
         return subs, True
 
-def extract_subs_by_language(video_path: Path, languages: list[str], include_cc: bool = False) -> tuple[list[Subtitle] | str, bool]:
+def extract_subs_by_language(video_path: Path, languages: list[str], include_cc: bool = False) -> tuple[list[Subtitle], bool]:
     """Extracts subtitles from the given Path based on the given languages.
     Languages must be given as a ISO 639 language code.
     If no subtitles are found matching any of the given languages, an error is thrown.
@@ -60,7 +60,7 @@ def extract_subs_by_language(video_path: Path, languages: list[str], include_cc:
         return subs, False
     return subs, True
 
-def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle = None, thumbnail: bool = False) -> tuple[str|None, bool]:
+def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle | None = None, thumbnail: bool = False) -> tuple[str|None, bool]:
     """Generate a clip with the given clipsettings and subtitles. Caption is optional.
 
     Args:
