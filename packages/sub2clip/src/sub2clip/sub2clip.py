@@ -26,7 +26,7 @@ def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtit
         subs = [Subtitle(
             start=ssa.start,
             end=ssa.end,
-            text=ssa.text.replace("\\N", "\N")
+            text=ssa.text.replace("\\N", "\n")
         ) for ssa in res]
 
         for i, sub in enumerate(subs):
