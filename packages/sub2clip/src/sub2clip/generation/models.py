@@ -268,7 +268,7 @@ class ClipSettings:
         for sub in sorted(subs):
             start = ms_to_ass_timing(sub.start + sub.delay - clip_start)
             end   = ms_to_ass_timing(sub.end - clip_start)
-            text = "\\N".join(sub.text)
+            text = sub.text
 
             lines.append(
                 f"Dialogue: 0,{start},{end},{style.name},,"
@@ -345,7 +345,7 @@ class ClipSettings:
 
         padding = 0
         if caption:
-            vf, padding = self.caption_style.build_caption_filters("\\N".join(caption.text), self.width, self.height)
+            vf, padding = self.caption_style.build_caption_filters(caption.text, self.width, self.height)
             vf_filters.append(vf)
 
 
