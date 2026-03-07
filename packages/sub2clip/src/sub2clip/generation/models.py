@@ -12,6 +12,7 @@ class VideoFormat(Enum):
     WEBP = 1
     GIF  = 2
     MP4  = 3
+    JPG  = 4
 
 @dataclass(frozen=True)
 class TextStyle:
@@ -134,7 +135,6 @@ class ClipSettings:
 
     Properties:
         input_path (Path): source video to use
-        clip_path (Path): location where the mp4 clip will be stored
         output_path (Path): location of the generated clip
         output_format (VideoFormat): Format to use
         start (int): Start time of the clip, in milliseconds
@@ -162,7 +162,6 @@ class ClipSettings:
         ValueError: when crop was set to true, but the given width and height don't match.
     """
     input_path: Path
-    clip_path: Path
     output_path: Path
     output_format: VideoFormat
     start: int
@@ -185,7 +184,7 @@ class ClipSettings:
         if not self.input_path.is_file():
             raise ValueError(f"Input file does not exist: {self.input_path}")
 
-        if self.start >= self.end:
+        if self.start > self.end:
             raise ValueError("Clip start time cannot be after end time")
 
         width_set = self.width is not None
@@ -246,6 +245,10 @@ class ClipSettings:
     @property
     def end_s(self) -> float:
         return self.end / 1000.0
+    
+    @property
+    def clip_path(self) -> Path:
+        return self.output_path.parent.joinpath(f"{self.output_path.name}.mp4")
 
     def _subtitles_to_ass(self, subs: list[Subtitle], clip_start: int, style: TextStyle) -> str:
         def ms_to_ass_timing(ms: int) -> str:
@@ -267,7 +270,7 @@ class ClipSettings:
         for sub in sorted(subs):
             start = ms_to_ass_timing(sub.start + sub.delay - clip_start)
             end   = ms_to_ass_timing(sub.end - clip_start)
-            text = "\\N".join(sub.text)
+            text = sub.text.replace("\n", "\\N")
 
             lines.append(
                 f"Dialogue: 0,{start},{end},{style.name},,"
@@ -344,7 +347,7 @@ class ClipSettings:
 
         padding = 0
         if caption:
-            vf, padding = self.caption_style.build_caption_filters("\\N".join(caption.text), self.width, self.height)
+            vf, padding = self.caption_style.build_caption_filters(caption.text, self.width, self.height)
             vf_filters.append(vf)
 
 

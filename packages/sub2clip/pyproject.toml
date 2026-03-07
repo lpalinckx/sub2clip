@@ -9,5 +9,10 @@ dependencies = [
   "pillow>=12.1.0"
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]

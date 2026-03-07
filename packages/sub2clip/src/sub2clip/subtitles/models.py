@@ -8,14 +8,14 @@ class Subtitle:
     Properties:
         start (int): start time of the subtitle in milliseconds
         end (int): end time of the subtitle in milliseconds
-        text (list[str]): List of lines for this subtitle
+        text (str): Text for this subtitle
         delay (int): delay to add to the original start time, in milliseconds
         nxt (Subtitle): Subtitle that comes after this one
         prv (Subtitle): Subtitle that precedes this one
     """
     start: int # ms
     end: int   # ms
-    text: list[str] = field(compare=False)
+    text: str = field(compare=False)
     delay: int = field(default=0, compare=False)
     nxt: Subtitle | None = field(default=None, compare=False, repr=False)
     prv: Subtitle | None = field(default=None, compare=False, repr=False)

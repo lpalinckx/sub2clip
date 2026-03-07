@@ -1,10 +1,10 @@
 from pathlib import Path
-from .ffmpeg_helpers import (run_ffmpeg, extract_subtitles, get_subtitle_lang_track, create_clip)
+from .ffmpeg_helpers import (run_ffmpeg, extract_subtitles, get_subtitle_lang_track, create_clip, create_thumbnail)
 from sub2clip.subtitles import Subtitle
 from sub2clip.generation import (ClipSettings)
 from tempfile import TemporaryDirectory
 
-def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtitle] | str, bool]:
+def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtitle], bool]:
     """Extracts the subtitles from the given Path. Subtitle track can be specified.
 
     Args:
@@ -26,7 +26,7 @@ def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtit
         subs = [Subtitle(
             start=ssa.start,
             end=ssa.end,
-            text=ssa.text.split("\\N")
+            text=ssa.text.replace("\\N", "\n")
         ) for ssa in res]
 
         for i, sub in enumerate(subs):
@@ -35,7 +35,7 @@ def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtit
 
         return subs, True
 
-def extract_subs_by_language(video_path: Path, languages: list[str], include_cc: bool = False) -> tuple[list[Subtitle] | str, bool]:
+def extract_subs_by_language(video_path: Path, languages: list[str], include_cc: bool = False) -> tuple[list[Subtitle], bool]:
     """Extracts subtitles from the given Path based on the given languages.
     Languages must be given as a ISO 639 language code.
     If no subtitles are found matching any of the given languages, an error is thrown.
@@ -60,7 +60,7 @@ def extract_subs_by_language(video_path: Path, languages: list[str], include_cc:
         return subs, False
     return subs, True
 
-def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle = None) -> tuple[str|None, bool]:
+def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle | None = None, thumbnail: bool = False) -> tuple[str|None, bool]:
     """Generate a clip with the given clipsettings and subtitles. Caption is optional.
 
     Args:
@@ -73,9 +73,14 @@ def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Su
             - [None, True] when generation succeeeded.
             - [str, False] when clip generation failed, str being the error message.
     """
-    err, ok = create_clip(clip_settings)
-    if not ok:
-        return err, False
+    if thumbnail:
+        err, ok = create_thumbnail(clip_settings)
+        if not ok:
+            return err, False
+    else:
+        err, ok = create_clip(clip_settings)
+        if not ok:
+            return err, False
 
     with TemporaryDirectory() as tmp:
         vf_filters = clip_settings.build_clip_filters(tmp, subtitles, caption)
