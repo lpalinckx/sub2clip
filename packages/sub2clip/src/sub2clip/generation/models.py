@@ -135,7 +135,6 @@ class ClipSettings:
 
     Properties:
         input_path (Path): source video to use
-        clip_path (Path): location where the mp4 clip will be stored
         output_path (Path): location of the generated clip
         output_format (VideoFormat): Format to use
         start (int): Start time of the clip, in milliseconds
@@ -163,7 +162,6 @@ class ClipSettings:
         ValueError: when crop was set to true, but the given width and height don't match.
     """
     input_path: Path
-    clip_path: Path
     output_path: Path
     output_format: VideoFormat
     start: int
@@ -247,6 +245,10 @@ class ClipSettings:
     @property
     def end_s(self) -> float:
         return self.end / 1000.0
+    
+    @property
+    def clip_path(self) -> Path:
+        return self.output_path.parent.joinpath(f"clip_{self.output_path.name}")
 
     def _subtitles_to_ass(self, subs: list[Subtitle], clip_start: int, style: TextStyle) -> str:
         def ms_to_ass_timing(ms: int) -> str:
