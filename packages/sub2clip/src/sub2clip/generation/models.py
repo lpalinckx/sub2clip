@@ -170,8 +170,8 @@ class ClipSettings:
     width: Optional[int] = None
     height: Optional[int] = None
     resolution: Optional[int] = None
-    subtitle_style: TextStyle = None
-    caption_style: TextStyle = None
+    subtitle_style: TextStyle | None = None
+    caption_style: TextStyle | None = None
     crop: bool = False
     boomerang: bool = False
     hd_gif: bool = False
@@ -279,30 +279,30 @@ class ClipSettings:
 
         return "\n".join(lines)
 
-    def _generate_ass(self, subs: list[Subtitle], caption: Subtitle | list[Subtitle] = None, padding: int = 0) -> str:
+    def _generate_ass(self, subs: list[Subtitle] | None, caption: Subtitle | list[Subtitle] | None = None, padding: int = 0) -> str:
         event_header = (
             "[Events]\n"
             "Format: Layer,Start,End,Style,Name,"
             "MarginL,MarginR,MarginV,Effect,Text"
         )
 
-        sub_style = self.subtitle_style.build_ass_style() if subs else ""
-        sub_str = self._subtitles_to_ass(subs, self.start, self.subtitle_style) if subs else ""
+        sub_style = self.subtitle_style.build_ass_style() if subs and self.subtitle_style else ""
+        sub_str = self._subtitles_to_ass(subs, self.start, self.subtitle_style) if subs  and self.subtitle_style else ""
 
         caption_style = ""
         caption_str = ""
         if caption:
             caption_list = caption if isinstance(caption, list) else [caption]
-            caption_style = self.caption_style.build_ass_style()
-            caption_str = self._subtitles_to_ass(caption_list, self.start, self.caption_style)
+            caption_style = self.caption_style.build_ass_style() if self.caption_style else ""
+            caption_str = self._subtitles_to_ass(caption_list, self.start, self.caption_style) if self.caption_style else ""
 
         return "\n".join([
             "[Script Info]",
             "ScriptType: v4.00+",
             f"PlayResX: {self.width}",
-            f"PlayResY: {self.height + padding}",
+            f"PlayResY: {(self.height if self.height is not None else 0) + padding}",
             "",
-            self.subtitle_style.build_ass_style_header(),
+            self.subtitle_style.build_ass_style_header() if self.subtitle_style else "",
             sub_style,
             caption_style,
             "",
@@ -312,14 +312,14 @@ class ClipSettings:
         ])
 
 
-    def build_clip_filters(self, tmp_dir: TemporaryDirectory, subtitles: list[Subtitle] = None, caption: Subtitle = None) -> list[str]:
+    def build_clip_filters(self, tmp_dir: str, subtitles: list[Subtitle] | None = None, caption: Subtitle | None = None) -> list[str]:
         vf_filters = []
 
         if self.boomerang:
             vf_filters.append("[0]reverse[r];[0][r]concat=n=2:v=1:a=0")
 
             # duplicate and time-shift subtitles so they appear in the reversed half
-            if subtitles:
+            if subtitles is not None:
                 rev_subs: list[Subtitle] = []
                 for sub in subtitles:
                     rel_s = sub.start - self.start
@@ -347,7 +347,11 @@ class ClipSettings:
 
         padding = 0
         if caption:
-            vf, padding = self.caption_style.build_caption_filters(caption.text, self.width, self.height)
+            vf, padding = self.caption_style.build_caption_filters(
+                caption.text,
+                self.width if self.width is not None else 0,
+                self.height if self.height is not None else 0,
+            ) if self.caption_style else "", 0
             vf_filters.append(vf)
 
 
