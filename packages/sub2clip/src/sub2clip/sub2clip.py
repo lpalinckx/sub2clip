@@ -58,16 +58,6 @@ def extract_subs_by_language(video_path: Path, languages: list[str], include_cc:
         for idx in get_subtitle_lang_track(video_path, languages)
         for extracted_subs in extract_subs(video_path, idx)
     )
-    # idx = get_subtitle_lang_track(video_path, languages)
-    # idx.do()
-    # return idx.map(lambda idx: extract_subs(video_path, idx))
-    # match idx:
-    #     case Success(idx):
-    #         return extract_subs(video_path, idx)
-    #     case Failure(err):
-    #         return Failure(err)
-    #     case _:
-    #         return Failure("unreachable")
 
 def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle | None = None, thumbnail: bool = False) -> Result[None, str]:
     """Generate a clip with the given clipsettings and subtitles. Caption is optional.
