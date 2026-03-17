@@ -3,8 +3,10 @@ from .ffmpeg_helpers import (run_ffmpeg, extract_subtitles, get_subtitle_lang_tr
 from sub2clip.subtitles import Subtitle
 from sub2clip.generation import (ClipSettings)
 from tempfile import TemporaryDirectory
+from returns.result import Result, Success, Failure
+import pysubs2
 
-def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtitle], bool]:
+def extract_subs(video_path: Path, subtitle_track: int = 0) -> Result[list[Subtitle], str]:
     """Extracts the subtitles from the given Path. Subtitle track can be specified.
 
     Args:
@@ -18,24 +20,25 @@ def extract_subs(video_path: Path, subtitle_track: int = 0) -> tuple[list[Subtit
     """
     with TemporaryDirectory() as tmp:
         output_path = Path(tmp) / 'subs.srt'
-        res, ok = extract_subtitles(video_path, output_path, subtitle_track)
 
-        if not ok:
-            return res, False
+        res = extract_subtitles(video_path, output_path, subtitle_track)
 
-        subs = [Subtitle(
-            start=ssa.start,
-            end=ssa.end,
-            text=ssa.text.replace("\\N", "\n")
-        ) for ssa in res]
+        def to_subs(file: pysubs2.SSAFile) -> list[Subtitle]:
+            subs = [Subtitle(
+                start=ssa.start,
+                end=ssa.end,
+                text=ssa.text.replace("\\N", "\n")
+            ) for ssa in file]
 
-        for i, sub in enumerate(subs):
-            sub.prv = subs[i-1] if i > 0 else None
-            sub.nxt = subs[i+1] if i < len(subs)-1 else None
+            for i, sub in enumerate(subs):
+                sub.prv = subs[i-1] if i > 0 else None
+                sub.nxt = subs[i+1] if i < len(subs)-1 else None
 
-        return subs, True
+            return subs
 
-def extract_subs_by_language(video_path: Path, languages: list[str], include_cc: bool = False) -> tuple[list[Subtitle], bool]:
+        return res.map(to_subs)
+
+def extract_subs_by_language(video_path: Path, languages: list[str], include_cc: bool = False) -> Result[list[Subtitle], str]:
     """Extracts subtitles from the given Path based on the given languages.
     Languages must be given as a ISO 639 language code.
     If no subtitles are found matching any of the given languages, an error is thrown.
@@ -50,17 +53,13 @@ def extract_subs_by_language(video_path: Path, languages: list[str], include_cc:
             - [list[Subtitle], True] when subtitle extraction succeeded.
             - [str, False] when subtitle extraction failed, str being the error message
     """
-    idx, ok = get_subtitle_lang_track(video_path, languages)
+    return Result.do(
+        extracted_subs
+        for idx in get_subtitle_lang_track(video_path, languages)
+        for extracted_subs in extract_subs(video_path, idx)
+    )
 
-    if not ok:
-        return idx, False
-
-    subs, ok = extract_subs(video_path, idx)
-    if not ok:
-        return subs, False
-    return subs, True
-
-def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle | None = None, thumbnail: bool = False) -> tuple[str|None, bool]:
+def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle | None = None, thumbnail: bool = False) -> Result[None, str]:
     """Generate a clip with the given clipsettings and subtitles. Caption is optional.
 
     Args:
@@ -74,25 +73,29 @@ def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Su
             - [str, False] when clip generation failed, str being the error message.
     """
     if thumbnail:
-        err, ok = create_thumbnail(clip_settings)
-        if not ok:
-            return err, False
+        err = create_thumbnail(clip_settings)
+        match err:
+            case Failure(err):
+                return Failure(err)
     else:
-        err, ok = create_clip(clip_settings)
-        if not ok:
-            return err, False
+        err = create_clip(clip_settings)
+        match err:
+            case Failure(err):
+                return Failure(err)
 
     with TemporaryDirectory() as tmp:
         vf_filters = clip_settings.build_clip_filters(tmp, subtitles, caption)
         vf = ",".join(vf_filters)
 
-        err, ok = run_ffmpeg(clip_settings.clip_path, clip_settings.output_path, vf)
-        if not ok:
-            return err, False
+        err = run_ffmpeg(clip_settings.clip_path, clip_settings.output_path, vf)
+        match err:
+            case Failure(err):
+                return Failure(err)
 
         if clip_settings.mp4_copy:
             ## TODO
             # err, ok =
-            if not ok:
-                return err, False
-        return None, True
+            match err:
+                case Failure(err):
+                    return Failure(err)
+        return Success(None)

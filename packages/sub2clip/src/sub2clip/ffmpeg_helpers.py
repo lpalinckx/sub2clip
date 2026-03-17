@@ -6,6 +6,7 @@ import pysubs2
 from ffmpeg import FFmpeg, FFmpegError
 from sub2clip.generation import ClipSettings
 from pathlib import Path
+from returns.result import Result, Success, Failure
 
 # module logger
 logger = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ def get_dimensions(path: Path) -> tuple[tuple[int,int]|str, bool]:
 
 
 @timeit
-def run_ffmpeg(input: Path, output: Path, filters=None) -> tuple[None|str, bool]:
+def run_ffmpeg(input: Path, output: Path, filters=None) -> Result[None, str]:
     ffmpeg = FFmpeg().option('y').input(input)
 
     if filters:
@@ -92,12 +93,12 @@ def run_ffmpeg(input: Path, output: Path, filters=None) -> tuple[None|str, bool]
     try:
         ffmpeg.execute()
     except FFmpegError as e:
-        return f'FFmpeg error: {e}. command = {_return_ffmpeg_command(e)}', False
-    return None, True
+        return Failure(f'FFmpeg error: {e}. command = {_return_ffmpeg_command(e)}')
+    return Success(None)
 
 
 @timeit
-def extract_subtitles(input: Path, output: Path, track: int) -> tuple[pysubs2.SSAFile | str, bool]:
+def extract_subtitles(input: Path, output: Path, track: int) -> Result[pysubs2.SSAFile, str]:
     ffprobe = FFmpeg(executable="ffprobe").input(input, print_format="json", show_streams=None)
     media = json.loads(ffprobe.execute())
     sub_streams = [
@@ -106,7 +107,7 @@ def extract_subtitles(input: Path, output: Path, track: int) -> tuple[pysubs2.SS
     ]
 
     if len(sub_streams) == 0:
-        return "No subtitle streams found for " + input.as_posix(), False
+        return Failure("No subtitle streams found for " + input.as_posix())
 
     try:
         (
@@ -120,17 +121,17 @@ def extract_subtitles(input: Path, output: Path, track: int) -> tuple[pysubs2.SS
                 vn=None)
         ).execute()
     except FFmpegError as e:
-        return f'Could not extract subtitles from video {input} at sub track {track}: {e}', False
+        return Failure(f'Could not extract subtitles from video {input} at sub track {track}: {e}')
 
     if Path(output).exists():
-        subs = pysubs2.load(output)
+        subs = pysubs2.load(output.__str__())
 
-        return subs, True
+        return Success(subs)
     else:
-        return f'Could not extract subtitles from video {input} at sub track {track}', False
+        return Failure(f'Could not extract subtitles from video {input} at sub track {track}')
 
 @timeit
-def get_subtitle_lang_track(input: Path, langs: list[str], include_cc: bool = False) -> [str|int, bool]:
+def get_subtitle_lang_track(input: Path, langs: list[str], include_cc: bool = False) -> Result[int, str]:
     ffprobe = FFmpeg(executable="ffprobe").input(input, print_format="json", show_streams=None)
     media = json.loads(ffprobe.execute())
 
@@ -145,7 +146,7 @@ def get_subtitle_lang_track(input: Path, langs: list[str], include_cc: bool = Fa
     ]
 
     if len(sub_streams) == 0:
-        return "No subtitle streams found for " + input.as_posix(), False
+        return Failure("No subtitle streams found for " + input.as_posix())
 
     target_stream = None
     for lang in langs:
@@ -165,11 +166,11 @@ def get_subtitle_lang_track(input: Path, langs: list[str], include_cc: bool = Fa
             break
 
     if not target_stream:
-        return "No subtitle stream exists for any of the requested languages: " + ','.join(langs), False
+        return Failure("No subtitle stream exists for any of the requested languages: " + ','.join(langs))
 
-    return int(target_stream.get('index'))-len(non_sub_streams), True
+    return Success(int(target_stream.get('index'))-len(non_sub_streams))
 
-def has_video_stream(path):
+def _has_video_stream(path):
     ffprobe = FFmpeg(executable="ffprobe").input(path, print_format="json", show_streams=None)
     media = json.loads(ffprobe.execute())
 
@@ -180,7 +181,7 @@ def has_video_stream(path):
     
 
 @timeit
-def create_clip(clip_settings: ClipSettings) -> tuple[str|None, bool]:
+def create_clip(clip_settings: ClipSettings) -> Result[None, str]:
 
     ffmpeg = (
         FFmpeg().option('y')
@@ -192,7 +193,7 @@ def create_clip(clip_settings: ClipSettings) -> tuple[str|None, bool]:
 
     try:
         ffmpeg.execute()
-        if not has_video_stream(clip_settings.clip_path):
+        if not _has_video_stream(clip_settings.clip_path):
             (
                 FFmpeg().option('y')
                         .input(clip_settings.input_path)
@@ -201,11 +202,11 @@ def create_clip(clip_settings: ClipSettings) -> tuple[str|None, bool]:
                         .output(clip_settings.clip_path, { 'c:v': 'libx265', 'crf': clip_settings.crf, 'preset': clip_settings.preset })
             ).execute()
     except FFmpegError as e:
-        return f'FFmpegError during clip creation: {e}', False
-    return None, True
+        return Failure(f'FFmpegError during clip creation: {e}')
+    return Success(None)
 
 @timeit
-def create_thumbnail(clip_settings: ClipSettings) -> tuple[str|None, bool]:
+def create_thumbnail(clip_settings: ClipSettings) -> Result[None, str]:
     ffmpeg = (
         FFmpeg().option('y')
                 .input(clip_settings.input_path)
@@ -216,7 +217,7 @@ def create_thumbnail(clip_settings: ClipSettings) -> tuple[str|None, bool]:
 
     try:
         ffmpeg.execute()
-        if not has_video_stream(clip_settings.clip_path):
+        if not _has_video_stream(clip_settings.clip_path):
             (
                 FFmpeg().option('y')
                         .input(clip_settings.input_path)
@@ -224,5 +225,5 @@ def create_thumbnail(clip_settings: ClipSettings) -> tuple[str|None, bool]:
                         .output(clip_settings.clip_path, { 'c:v': 'libx265', 'crf': clip_settings.crf, 'preset': clip_settings.preset }, vframes=1)
             ).execute()
     except FFmpegError as e:
-        return f'FFmpegError during thumbnail creation: {e}', False
-    return None, True
+        return Failure(f'FFmpegError during thumbnail creation: {e}')
+    return Success(None)
