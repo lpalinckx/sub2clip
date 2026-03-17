@@ -3,6 +3,7 @@ from sub2clip.generation.models import ClipSettings, VideoFormat, Subtitle
 import pytest
 from tempfile import TemporaryDirectory
 from pathlib import Path
+from returns.pipeline import is_successful
 
 def test_generate_thumbnail():
 
@@ -16,11 +17,10 @@ def test_generate_thumbnail():
             end=5000,
         )
 
-        err, ok = sub2clip.sub2clip.generate(
+        err = sub2clip.sub2clip.generate(
             clip_settings=clip_settings,
             subtitles=[Subtitle(text="This is a test", start=5000, end=5001)],
             thumbnail=True,
         )
 
-        assert ok
-        assert err is None
+        assert is_successful(err)
