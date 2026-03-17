@@ -4,6 +4,7 @@ from sub2clip.subtitles import Subtitle
 from sub2clip.generation import (ClipSettings)
 from tempfile import TemporaryDirectory
 from returns.result import Result, Success, Failure
+import pysubs2
 
 def extract_subs(video_path: Path, subtitle_track: int = 0) -> Result[list[Subtitle], str]:
     """Extracts the subtitles from the given Path. Subtitle track can be specified.
@@ -19,25 +20,23 @@ def extract_subs(video_path: Path, subtitle_track: int = 0) -> Result[list[Subti
     """
     with TemporaryDirectory() as tmp:
         output_path = Path(tmp) / 'subs.srt'
+
         res = extract_subtitles(video_path, output_path, subtitle_track)
 
-        match res:
-            case Success(res):
-                subs = [Subtitle(
-                    start=ssa.start,
-                    end=ssa.end,
-                    text=ssa.text.replace("\\N", "\n")
-                ) for ssa in res]
+        def to_subs(file: pysubs2.SSAFile) -> list[Subtitle]:
+            subs = [Subtitle(
+                start=ssa.start,
+                end=ssa.end,
+                text=ssa.text.replace("\\N", "\n")
+            ) for ssa in file]
 
-                for i, sub in enumerate(subs):
-                    sub.prv = subs[i-1] if i > 0 else None
-                    sub.nxt = subs[i+1] if i < len(subs)-1 else None
+            for i, sub in enumerate(subs):
+                sub.prv = subs[i-1] if i > 0 else None
+                sub.nxt = subs[i+1] if i < len(subs)-1 else None
 
-                return Success(subs)
-            case Failure(err):
-                return Failure(err)
-            case _:
-                return Failure("unreachable")
+            return subs
+
+        return res.map(to_subs)
 
 def extract_subs_by_language(video_path: Path, languages: list[str], include_cc: bool = False) -> Result[list[Subtitle], str]:
     """Extracts subtitles from the given Path based on the given languages.
@@ -54,14 +53,21 @@ def extract_subs_by_language(video_path: Path, languages: list[str], include_cc:
             - [list[Subtitle], True] when subtitle extraction succeeded.
             - [str, False] when subtitle extraction failed, str being the error message
     """
-    idx = get_subtitle_lang_track(video_path, languages)
-    match idx:
-        case Success(idx):
-            return extract_subs(video_path, idx)
-        case Failure(err):
-            return Failure(err)
-        case _:
-            return Failure("unreachable")
+    return Result.do(
+        extracted_subs
+        for idx in get_subtitle_lang_track(video_path, languages)
+        for extracted_subs in extract_subs(video_path, idx)
+    )
+    # idx = get_subtitle_lang_track(video_path, languages)
+    # idx.do()
+    # return idx.map(lambda idx: extract_subs(video_path, idx))
+    # match idx:
+    #     case Success(idx):
+    #         return extract_subs(video_path, idx)
+    #     case Failure(err):
+    #         return Failure(err)
+    #     case _:
+    #         return Failure("unreachable")
 
 def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle | None = None, thumbnail: bool = False) -> Result[None, str]:
     """Generate a clip with the given clipsettings and subtitles. Caption is optional.
