@@ -167,11 +167,11 @@ class ClipSettings:
     start: int
     end: int
     fps: int = 20
-    width: Optional[int] = None
-    height: Optional[int] = None
-    resolution: Optional[int] = None
-    subtitle_style: TextStyle | None = None
-    caption_style: TextStyle | None = None
+    width: int = None # type: ignore
+    height: int = None # type: ignore
+    resolution: int = None # type: ignore
+    subtitle_style: TextStyle = None # type: ignore
+    caption_style: TextStyle = None # type: ignore
     crop: bool = False
     boomerang: bool = False
     hd_gif: bool = False
@@ -286,21 +286,21 @@ class ClipSettings:
             "MarginL,MarginR,MarginV,Effect,Text"
         )
 
-        sub_style = self.subtitle_style.build_ass_style() if subs and self.subtitle_style else ""
-        sub_str = self._subtitles_to_ass(subs, self.start, self.subtitle_style) if subs  and self.subtitle_style else ""
+        sub_style = self.subtitle_style.build_ass_style() if subs else ""
+        sub_str = self._subtitles_to_ass(subs, self.start, self.subtitle_style) if subs else ""
 
         caption_style = ""
         caption_str = ""
         if caption:
             caption_list = caption if isinstance(caption, list) else [caption]
-            caption_style = self.caption_style.build_ass_style() if self.caption_style else ""
-            caption_str = self._subtitles_to_ass(caption_list, self.start, self.caption_style) if self.caption_style else ""
+            caption_style = self.caption_style.build_ass_style()
+            caption_str = self._subtitles_to_ass(caption_list, self.start, self.caption_style)
 
         return "\n".join([
             "[Script Info]",
             "ScriptType: v4.00+",
             f"PlayResX: {self.width}",
-            f"PlayResY: {(self.height if self.height is not None else 0) + padding}",
+            f"PlayResY: {self.height + padding}",
             "",
             self.subtitle_style.build_ass_style_header() if self.subtitle_style else "",
             sub_style,
@@ -319,7 +319,7 @@ class ClipSettings:
             vf_filters.append("[0]reverse[r];[0][r]concat=n=2:v=1:a=0")
 
             # duplicate and time-shift subtitles so they appear in the reversed half
-            if subtitles is not None:
+            if subtitles:
                 rev_subs: list[Subtitle] = []
                 for sub in subtitles:
                     rel_s = sub.start - self.start
@@ -349,9 +349,9 @@ class ClipSettings:
         if caption:
             vf, padding = self.caption_style.build_caption_filters(
                 caption.text,
-                self.width if self.width is not None else 0,
-                self.height if self.height is not None else 0,
-            ) if self.caption_style else "", 0
+                self.width,
+                self.height,
+            ), 0
             vf_filters.append(vf)
 
 
