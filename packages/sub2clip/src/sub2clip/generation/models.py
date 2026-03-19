@@ -12,6 +12,7 @@ class VideoFormat(Enum):
     WEBP = 1
     GIF  = 2
     MP4  = 3
+    JPG  = 4
 
 @dataclass(frozen=True)
 class TextStyle:
@@ -134,7 +135,6 @@ class ClipSettings:
 
     Properties:
         input_path (Path): source video to use
-        clip_path (Path): location where the mp4 clip will be stored
         output_path (Path): location of the generated clip
         output_format (VideoFormat): Format to use
         start (int): Start time of the clip, in milliseconds
@@ -162,17 +162,16 @@ class ClipSettings:
         ValueError: when crop was set to true, but the given width and height don't match.
     """
     input_path: Path
-    clip_path: Path
     output_path: Path
     output_format: VideoFormat
     start: int
     end: int
     fps: int = 20
-    width: Optional[int] = None
-    height: Optional[int] = None
-    resolution: Optional[int] = None
-    subtitle_style: TextStyle = None
-    caption_style: TextStyle = None
+    width: int = None # type: ignore
+    height: int = None # type: ignore
+    resolution: int = None # type: ignore
+    subtitle_style: TextStyle = None # type: ignore
+    caption_style: TextStyle = None # type: ignore
     crop: bool = False
     boomerang: bool = False
     hd_gif: bool = False
@@ -185,7 +184,7 @@ class ClipSettings:
         if not self.input_path.is_file():
             raise ValueError(f"Input file does not exist: {self.input_path}")
 
-        if self.start >= self.end:
+        if self.start > self.end:
             raise ValueError("Clip start time cannot be after end time")
 
         width_set = self.width is not None
@@ -246,6 +245,10 @@ class ClipSettings:
     @property
     def end_s(self) -> float:
         return self.end / 1000.0
+    
+    @property
+    def clip_path(self) -> Path:
+        return self.output_path.parent.joinpath(f"{self.output_path.name}.mp4")
 
     def _subtitles_to_ass(self, subs: list[Subtitle], clip_start: int, style: TextStyle) -> str:
         def ms_to_ass_timing(ms: int) -> str:
@@ -267,7 +270,7 @@ class ClipSettings:
         for sub in sorted(subs):
             start = ms_to_ass_timing(sub.start + sub.delay - clip_start)
             end   = ms_to_ass_timing(sub.end - clip_start)
-            text = "\\N".join(sub.text)
+            text = sub.text.replace("\n", "\\N")
 
             lines.append(
                 f"Dialogue: 0,{start},{end},{style.name},,"
@@ -276,7 +279,7 @@ class ClipSettings:
 
         return "\n".join(lines)
 
-    def _generate_ass(self, subs: list[Subtitle], caption: Subtitle | list[Subtitle] = None, padding: int = 0) -> str:
+    def _generate_ass(self, subs: list[Subtitle] | None, caption: Subtitle | list[Subtitle] | None = None, padding: int = 0) -> str:
         event_header = (
             "[Events]\n"
             "Format: Layer,Start,End,Style,Name,"
@@ -299,7 +302,7 @@ class ClipSettings:
             f"PlayResX: {self.width}",
             f"PlayResY: {self.height + padding}",
             "",
-            self.subtitle_style.build_ass_style_header(),
+            self.subtitle_style.build_ass_style_header() if self.subtitle_style else "",
             sub_style,
             caption_style,
             "",
@@ -309,7 +312,7 @@ class ClipSettings:
         ])
 
 
-    def build_clip_filters(self, tmp_dir: TemporaryDirectory, subtitles: list[Subtitle] = None, caption: Subtitle = None) -> list[str]:
+    def build_clip_filters(self, tmp_dir: str, subtitles: list[Subtitle] | None = None, caption: Subtitle | None = None) -> list[str]:
         vf_filters = []
 
         if self.boomerang:
@@ -344,7 +347,11 @@ class ClipSettings:
 
         padding = 0
         if caption:
-            vf, padding = self.caption_style.build_caption_filters("\\N".join(caption.text), self.width, self.height)
+            vf, padding = self.caption_style.build_caption_filters(
+                caption.text,
+                self.width,
+                self.height,
+            ), 0
             vf_filters.append(vf)
 
 
