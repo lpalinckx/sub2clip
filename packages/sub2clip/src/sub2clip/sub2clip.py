@@ -59,7 +59,7 @@ def extract_subs_by_language(video_path: Path, languages: list[str], include_cc:
         for extracted_subs in extract_subs(video_path, idx)
     )
 
-def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle | None = None, thumbnail: bool = False) -> Result[None, str]:
+def generate(clip_settings: ClipSettings, subtitles: list[Subtitle] | None, caption: Subtitle | None = None, thumbnail: bool = False) -> Result[None, str]:
     """Generate a clip with the given clipsettings and subtitles. Caption is optional.
 
     Args:
