@@ -87,7 +87,7 @@ def generate(clip_settings: ClipSettings, subtitles: list[Subtitle] | None, capt
         vf_filters = clip_settings.build_clip_filters(tmp, subtitles, caption)
         vf = ",".join(vf_filters)
 
-        err = run_ffmpeg(clip_settings.clip_path, clip_settings.output_path, vf)
+        err = run_ffmpeg(clip_settings.clip_path, clip_settings.output_path, vf, thumbnail)
         match err:
             case Failure(err):
                 return Failure(err)

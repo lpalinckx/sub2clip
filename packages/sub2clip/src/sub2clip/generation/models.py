@@ -340,14 +340,14 @@ class ClipSettings:
 
         padding = 0
 
+        if self.crop:
+            vf_filters.append('crop=in_h:in_h')
+
+        vf_filters.append(f'scale={self.width}:{self.height}:flags=lanczos')
+
         if subtitles is not None:
 
             vf_filters.append(f'fps={self.fps}')
-
-            if self.crop:
-                vf_filters.append('crop=in_h:in_h')
-
-            vf_filters.append(f'scale={self.width}:{self.height}:flags=lanczos')
 
             ass = self._generate_ass(subtitles, caption, padding)
             ass_file = Path(tmp_dir) / 'sub.ass'
