@@ -338,14 +338,23 @@ class ClipSettings:
                     text=caption.text,
                     delay=caption.delay)
 
-        vf_filters.append(f'fps={self.fps}')
-
-        if self.crop:
-            vf_filters.append('crop=in_h:in_h')
-
-        vf_filters.append(f'scale={self.width}:{self.height}:flags=lanczos')
-
         padding = 0
+
+        if subtitles is not None:
+
+            vf_filters.append(f'fps={self.fps}')
+
+            if self.crop:
+                vf_filters.append('crop=in_h:in_h')
+
+            vf_filters.append(f'scale={self.width}:{self.height}:flags=lanczos')
+
+            ass = self._generate_ass(subtitles, caption, padding)
+            ass_file = Path(tmp_dir) / 'sub.ass'
+            ass_file.write_text(ass, encoding='utf-8')
+
+            vf_filters.append(f"subtitles={ass_file.resolve()}")
+
         if caption:
             vf, padding = self.caption_style.build_caption_filters(
                 caption.text,
@@ -353,14 +362,6 @@ class ClipSettings:
                 self.height,
             ), 0
             vf_filters.append(vf)
-
-
-        if subtitles is not None:
-            ass = self._generate_ass(subtitles, caption, padding)
-            ass_file = Path(tmp_dir) / 'sub.ass'
-            ass_file.write_text(ass, encoding='utf-8')
-
-            vf_filters.append(f"subtitles={ass_file.resolve()}")
 
         if self.output_format == VideoFormat.GIF:
             # Palette
