@@ -1,6 +1,6 @@
 [project]
 name = "sub2clip"
-version = "2.4.0"
+version = "2.4.1"
 description = "Core logic for clip generation"
 requires-python = ">=3.10"
 dependencies = [

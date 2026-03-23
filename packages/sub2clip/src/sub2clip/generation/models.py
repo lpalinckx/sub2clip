@@ -279,15 +279,15 @@ class ClipSettings:
 
         return "\n".join(lines)
 
-    def _generate_ass(self, subs: list[Subtitle] | None, caption: Subtitle | list[Subtitle] | None = None, padding: int = 0) -> str:
+    def _generate_ass(self, subs: list[Subtitle], caption: Subtitle | list[Subtitle] | None = None, padding: int = 0) -> str:
         event_header = (
             "[Events]\n"
             "Format: Layer,Start,End,Style,Name,"
             "MarginL,MarginR,MarginV,Effect,Text"
         )
 
-        sub_style = self.subtitle_style.build_ass_style() if subs else ""
-        sub_str = self._subtitles_to_ass(subs, self.start, self.subtitle_style) if subs else ""
+        sub_style = self.subtitle_style.build_ass_style()
+        sub_str = self._subtitles_to_ass(subs, self.start, self.subtitle_style)
 
         caption_style = ""
         caption_str = ""
@@ -338,14 +338,23 @@ class ClipSettings:
                     text=caption.text,
                     delay=caption.delay)
 
-        vf_filters.append(f'fps={self.fps}')
+        padding = 0
 
         if self.crop:
             vf_filters.append('crop=in_h:in_h')
 
         vf_filters.append(f'scale={self.width}:{self.height}:flags=lanczos')
 
-        padding = 0
+        if subtitles is not None:
+
+            vf_filters.append(f'fps={self.fps}')
+
+            ass = self._generate_ass(subtitles, caption, padding)
+            ass_file = Path(tmp_dir) / 'sub.ass'
+            ass_file.write_text(ass, encoding='utf-8')
+
+            vf_filters.append(f"subtitles={ass_file.resolve()}")
+
         if caption:
             vf, padding = self.caption_style.build_caption_filters(
                 caption.text,
@@ -353,13 +362,6 @@ class ClipSettings:
                 self.height,
             ), 0
             vf_filters.append(vf)
-
-
-        ass = self._generate_ass(subtitles, caption, padding)
-        ass_file = Path(tmp_dir) / 'sub.ass'
-        ass_file.write_text(ass, encoding='utf-8')
-
-        vf_filters.append(f"subtitles={ass_file.resolve()}")
 
         if self.output_format == VideoFormat.GIF:
             # Palette

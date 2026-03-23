@@ -59,7 +59,7 @@ def extract_subs_by_language(video_path: Path, languages: list[str], include_cc:
         for extracted_subs in extract_subs(video_path, idx)
     )
 
-def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Subtitle | None = None, thumbnail: bool = False) -> Result[None, str]:
+def generate(clip_settings: ClipSettings, subtitles: list[Subtitle] | None, caption: Subtitle | None = None, thumbnail: bool = False) -> Result[None, str]:
     """Generate a clip with the given clipsettings and subtitles. Caption is optional.
 
     Args:
@@ -87,7 +87,7 @@ def generate(clip_settings: ClipSettings, subtitles: list[Subtitle], caption: Su
         vf_filters = clip_settings.build_clip_filters(tmp, subtitles, caption)
         vf = ",".join(vf_filters)
 
-        err = run_ffmpeg(clip_settings.clip_path, clip_settings.output_path, vf)
+        err = run_ffmpeg(clip_settings.clip_path, clip_settings.output_path, vf, thumbnail)
         match err:
             case Failure(err):
                 return Failure(err)

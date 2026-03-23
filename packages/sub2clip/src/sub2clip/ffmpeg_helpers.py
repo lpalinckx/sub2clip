@@ -84,11 +84,17 @@ def get_dimensions(path: Path) -> tuple[tuple[int,int]|str, bool]:
 
 
 @timeit
-def run_ffmpeg(input: Path, output: Path, filters=None) -> Result[None, str]:
+def run_ffmpeg(input: Path, output: Path, filters=None, thumbnail: bool = False) -> Result[None, str]:
     ffmpeg = FFmpeg().option('y').input(input)
 
+    opts = { 'loop': 0 }
     if filters:
-        ffmpeg = ffmpeg.output(output, {'filter_complex': filters, 'loop': 0})
+        opts['filter_complex'] = filters
+
+    if thumbnail:
+        opts['vframes'] = 1
+
+    ffmpeg = ffmpeg.output(output, opts)
 
     try:
         ffmpeg.execute()
