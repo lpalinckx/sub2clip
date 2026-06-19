@@ -14,9 +14,9 @@ def extract_subs(video_path: Path, subtitle_track: int = 0) -> Result[list[Subti
         subtitle_track (int, optional): Specific track to extract from the video, see FFmpeg for more details. Defaults to 0.
 
     Returns:
-        tuple[list[Subtitle] | str, bool]:
-            - [list[Subtitle], True] when subtitle extraction succeeded.
-            - [str, False] when subtitle extraction failed, str being the error message
+        Result[Success(list[Subtitle])|Failure(str)]
+            - Success(list[Subtitle]) when subtitle extraction succeeded.
+            - Failure(str) when subtitle extraction failed, str being the error message
     """
     with TemporaryDirectory() as tmp:
         output_path = Path(tmp) / 'subs.srt'
@@ -49,9 +49,9 @@ def extract_subs_by_language(video_path: Path, languages: list[str], include_cc:
         include_cc (bool, optional): Whether to include subtitles marked as Closed Captions, Hearing Impaired or similar. Defaults to False.
 
     Returns:
-        tuple[list[Subtitle] | str, bool]:
-            - [list[Subtitle], True] when subtitle extraction succeeded.
-            - [str, False] when subtitle extraction failed, str being the error message
+        Result[Success(list[Subtitle])|Failure(str)]
+            - Success(list[Subtitle]) when subtitle extraction succeeded.
+            - Failure(str) when subtitle extraction failed, str being the error message
     """
     return Result.do(
         extracted_subs
@@ -68,9 +68,9 @@ def generate(clip_settings: ClipSettings, subtitles: list[Subtitle] | None, capt
         caption (Subtitle, optional): Caption to display above the clip, lasts for the entire clip. Defaults to None.
 
     Returns:
-        tuple[str|None, bool]:
-            - [None, True] when generation succeeeded.
-            - [str, False] when clip generation failed, str being the error message.
+        Result[Success(None)|Failure(str)]:
+            - Sucess(None) when generation succeeeded.
+            - Failure(str), str is the error message.
     """
     if thumbnail:
         err = create_thumbnail(clip_settings)
