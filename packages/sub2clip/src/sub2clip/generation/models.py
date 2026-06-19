@@ -50,6 +50,29 @@ class TextStyle:
     margin_r: int = 0
     margin_v: int = 10
 
+    @classmethod
+    def default_caption(cls, font_size: int = 20, **kwargs) -> TextStyle:
+        """Create a default caption style.
+
+        Args:
+            font_size: Font size to use. Defaults to 20. Can be overridden to match subtitle_style.
+            **kwargs: Additional TextStyle parameters to customize (font, font_color, bold, italic, etc.)
+
+        Returns:
+            A TextStyle configured as a default caption style with customizable properties.
+        """
+        caption_defaults = {
+            "name": "caption_style",
+            "font_size": font_size,
+            "alignment": 7,
+            "margin_l": 15,
+            "margin_r": 0,
+            "margin_v": 10
+        }
+        # Allow kwargs to override the defaults
+        caption_defaults.update(kwargs)
+        return cls(**caption_defaults)
+
     @property
     def outline_width(self) -> float:
         return (
@@ -79,7 +102,8 @@ class TextStyle:
         with TemporaryDirectory() as td:
             td = Path(td)
             caption_ass = td / "caption.ass"
-            png_out = td / "out.png"
+            # png_out = td / "out.png"
+            png_out = "out.png"
 
             ass_content = (
                 "[Script Info]",
@@ -123,7 +147,7 @@ class TextStyle:
             if top is None:
                 return 0
             measured = bottom - top + 1
-            return measured + self.margin_v*2
+            return measured + self.margin_v*2.5
 
     def build_caption_filters(self, text: str, width: int, height: int) -> tuple[str, int]:
         padding = self.calculate_caption_padding(text, width, height)
@@ -245,7 +269,7 @@ class ClipSettings:
     @property
     def end_s(self) -> float:
         return self.end / 1000.0
-    
+
     @property
     def clip_path(self) -> Path:
         return self.output_path.parent.joinpath(f"{self.output_path.name}.mp4")
@@ -345,6 +369,15 @@ class ClipSettings:
 
         vf_filters.append(f'scale={self.width}:{self.height}:flags=lanczos')
 
+        if caption:
+            vf, padding = self.caption_style.build_caption_filters(
+                caption.text,
+                self.width,
+                self.height,
+            )
+            print(vf, padding)
+            vf_filters.append(vf)
+
         if subtitles is not None:
 
             vf_filters.append(f'fps={self.fps}')
@@ -354,14 +387,6 @@ class ClipSettings:
             ass_file.write_text(ass, encoding='utf-8')
 
             vf_filters.append(f"subtitles={ass_file.resolve()}")
-
-        if caption:
-            vf, padding = self.caption_style.build_caption_filters(
-                caption.text,
-                self.width,
-                self.height,
-            ), 0
-            vf_filters.append(vf)
 
         if self.output_format == VideoFormat.GIF:
             # Palette
