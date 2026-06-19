@@ -1,12 +1,11 @@
 from pathlib import Path
 from sub2clip.sub2clip import extract_subs
+from returns.result import Success, Failure
 
 video = Path('input.mkv')
-subs, ok = extract_subs(video)
-if not ok:
-	raise RuntimeError(subs)
+subs = extract_subs(video).unwrap()
 
 sub = subs[10]
-print(sub.prv) 
+print(sub.prv)
 print(sub)
-print(sub.nxt) 
+print(sub.nxt)
