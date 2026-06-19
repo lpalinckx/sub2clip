@@ -28,9 +28,7 @@ from pathlib import Path
 from sub2clip.sub2clip import extract_subs
 
 video = Path('input.mkv')
-subs, ok = extract_subs(video)
-if not ok:
-	raise RuntimeError(subs)
+subs = extract_subs(video).unwrap()
 
 # `subs` is a list of Subtitles — you can inspect entries like:
 for sub in subs:
@@ -44,15 +42,15 @@ from pathlib import Path
 from sub2clip.sub2clip import generate
 from sub2clip.generation import ClipSettings, VideoFormat
 from sub2clip.subtitles import Subtitle
+from returns.result import Success, Failure
 
 video = Path('input.mp4')
 
 # Example: use a single subtitle timing to build a clip
-sub = Subtitle(start=10000, end=13000, text=['Hello world'], delay=0)
+sub = Subtitle(start=10000, end=13000, text='Hello world', delay=0)
 
 clip_settings = ClipSettings(
 	input_path=video,
-	clip_path=Path('output/clip.mp4'),
 	output_path=Path('output/clip.webp'),
 	output_format=VideoFormat.WEBP,
 	start=sub.start,
@@ -61,11 +59,16 @@ clip_settings = ClipSettings(
 	resolution=480,
 )
 
-err, ok = generate(clip_settings, subtitles=[sub])
-if not ok:
-	raise RuntimeError(err)
-
+err = generate(clip_settings, subtitles=[sub]).unwrap()
 print('Generated:', clip_settings.output_path)
+
+# OR:
+
+match generate(clip_settings, subtitles=[sub]):
+    case Failure(error):
+        print(error)
+    case Success(_):
+        print('Generated:', clip_settings.output_path)
 ```
 
 A larger example can be found at `examples/example.py`.
