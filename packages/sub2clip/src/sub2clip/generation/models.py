@@ -102,8 +102,7 @@ class TextStyle:
         with TemporaryDirectory() as td:
             td = Path(td)
             caption_ass = td / "caption.ass"
-            # png_out = td / "out.png"
-            png_out = "out.png"
+            png_out = td / "out.png"
 
             ass_content = (
                 "[Script Info]",
@@ -291,9 +290,12 @@ class ClipSettings:
 
         lines: list[str] = []
 
+        # Add buffer to ensure subtitles cover all frames (1.5x frame duration)
+        frame_buffer_ms = 1500 / self.fps
+
         for sub in sorted(subs):
             start = ms_to_ass_timing(sub.start + sub.delay - clip_start)
-            end   = ms_to_ass_timing(sub.end - clip_start)
+            end   = ms_to_ass_timing(sub.end - clip_start + frame_buffer_ms)
             text = sub.text.replace("\n", "\\N")
 
             lines.append(
@@ -375,7 +377,6 @@ class ClipSettings:
                 self.width,
                 self.height,
             )
-            print(vf, padding)
             vf_filters.append(vf)
 
         if subtitles is not None:
