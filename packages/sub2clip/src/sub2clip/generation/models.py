@@ -290,10 +290,11 @@ class ClipSettings:
 
         lines: list[str] = []
 
-        # Add buffer to ensure subtitles cover all frames (1.5x frame duration)
-        frame_buffer_ms = 1500 / self.fps
+        for i, sub in enumerate(sorted(subs)):
+            frame_buffer_ms = 0
+            if i == len(subs)-1:
+                frame_buffer_ms = 1500 / self.fps
 
-        for sub in sorted(subs):
             start = ms_to_ass_timing(sub.start + sub.delay - clip_start)
             end   = ms_to_ass_timing(sub.end - clip_start + frame_buffer_ms)
             text = sub.text.replace("\n", "\\N")
@@ -344,7 +345,6 @@ class ClipSettings:
         if self.boomerang:
             vf_filters.append("[0]reverse[r];[0][r]concat=n=2:v=1:a=0")
 
-            # duplicate and time-shift subtitles so they appear in the reversed half
             if subtitles:
                 rev_subs: list[Subtitle] = []
                 for sub in subtitles:
@@ -352,17 +352,22 @@ class ClipSettings:
                     rel_e = sub.end - self.start
                     rev_rel_s = 2 * self.duration - rel_e
                     rev_rel_e = 2 * self.duration - rel_s
-                    rev_sub = Subtitle(start=self.start + rev_rel_s, end=self.start + rev_rel_e, text=sub.text, delay=sub.delay)
+                    rev_sub = Subtitle(
+                        start=self.start + rev_rel_s,
+                        end=self.start + rev_rel_e,
+                        text=sub.text,
+                        delay=sub.delay
+                    )
                     rev_subs.append(rev_sub)
-
                 subtitles = subtitles + rev_subs
 
             if caption:
                 caption = Subtitle(
                     start=caption.start,
-                    end=caption.end*2,
+                    end=self.start + 2 * self.duration,  # More explicit
                     text=caption.text,
-                    delay=caption.delay)
+                    delay=caption.delay
+                )
 
         padding = 0
 
